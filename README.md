@@ -52,7 +52,7 @@ If the file is present on the system, it will be imported by an addon associated
 
 **This addon is reliant on new features of the Blender API, versions before 4.3.2 are not supported.**
 * [Blender 4.3.2 or higher](https://www.blender.org/download/)
-* [RE Mesh Editor](https://github.com/NSACloud/RE-Chain-Editor) - Blender addon for importing RE Engine models.
+* [RE Mesh Editor](https://github.com/NSACloud/RE-Mesh-Editor) - Blender addon for importing RE Engine models.
 * [RE Chain Editor](https://github.com/NSACloud/RE-Chain-Editor) - Blender addon for setting up bone physics. This is required if you are going to import chain files through the asset library.
 
 
