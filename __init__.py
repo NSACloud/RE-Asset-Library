@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 1),
+	"version": (0, 2),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -204,7 +204,7 @@ class ImportREAssetLib(bpy.types.Operator, ImportHelper):
 	
 	filename_ext = ".reassetlib"
 	filter_glob: StringProperty(default="*.reassetlib", options = {"HIDDEN"})
-	
+	currentBlendPath: bpy.props.StringProperty(default="", options = {"HIDDEN"})
 	def execute(self, context):
 		if os.path.isfile(self.filepath):
 			assetLibraryDir = bpy.path.abspath(bpy.context.preferences.addons[__name__].preferences.assetLibraryPath)
@@ -224,7 +224,11 @@ class ImportREAssetLib(bpy.types.Operator, ImportHelper):
 					shutil.copy(sourceBlendPath,outputBlendPath)
 					
 				if os.path.isfile(outputCatalogPath) and os.path.isfile(outputGameInfoPath) and os.path.isfile(outputBlendPath) and os.path.isfile(scriptPath):
-					subprocess.Popen([bpy.app.binary_path, outputBlendPath, "--python", scriptPath])
+					
+					if outputBlendPath == self.currentBlendPath:
+						bpy.ops.re_asset.initialize_library()
+					else:
+						subprocess.Popen([bpy.app.binary_path, outputBlendPath, "--python", scriptPath])
 				else:
 					self.report({"ERROR"},"Missing files, cannot create library.")
 					return {'CANCELLED'}

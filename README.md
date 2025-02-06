@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.1 (2/2/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log)
+**V0.2 (2/6/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log)
 
 **EXPERIMENTAL RELEASE, THERE MAY BE BUGS**
 
@@ -171,6 +171,14 @@ Choose the game and set the path to the natives\STM\ folder. (See above for refe
 
 
 ## Change Log
+
+### V0.2 - 2/6/2025
+* Fixed issue where thumbnails would not update when using the Check For Library Update button.
+* Check For Library Update no longer opens a new Blender window.
+
+Note: If you have an issue where assets in the browser show up as gray file icons, use the "Fetch RE Asset Thumbnails" button and check "Force Reload All".
+
+This button can be found in the 3D view on the N panel under the "RE Assets" tab when you have an asset library blend file open.
 
 ### V0.1 - 1/18/2025
 * Experimental release.

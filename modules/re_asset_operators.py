@@ -1130,7 +1130,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 			if os.path.isfile(outFilePath):
 				if libCRC == getFileCRC(outFilePath):
 					print("CRC Check Passed")
-					bpy.ops.re_asset.importlibrary(filepath = outFilePath)
+					bpy.ops.re_asset.importlibrary(filepath = outFilePath,currentBlendPath = bpy.path.abspath(bpy.context.blend_data.filepath))
 					try:
 						os.remove(outFilePath)
 					except:
