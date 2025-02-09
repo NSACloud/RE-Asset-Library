@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 2),
+	"version": (0, 3),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -210,7 +210,7 @@ class ImportREAssetLib(bpy.types.Operator, ImportHelper):
 			assetLibraryDir = bpy.path.abspath(bpy.context.preferences.addons[__name__].preferences.assetLibraryPath)
 			gameName = unzipLibrary(assetLibraryDir, self.filepath)
 			if gameName != None:
-				print(f"Attemping to install {gameName} library...")
+				print(f"Attempting to install {gameName} library...")
 				newLibraryDir = os.path.join(assetLibraryDir,gameName)
 				os.makedirs(newLibraryDir,exist_ok=True)
 				outputCatalogPath = os.path.join(newLibraryDir,f"REAssetCatalog_{gameName}.tsv")

@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.2 (2/6/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log)
+**V0.3 (2/9/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log)
 
 **EXPERIMENTAL RELEASE, THERE MAY BE BUGS**
 
@@ -171,6 +171,11 @@ Choose the game and set the path to the natives\STM\ folder. (See above for refe
 
 
 ## Change Log
+
+### V0.3 - 2/9/2025
+* Changed HDRI used for rendering asset thumbnails.
+* Improved quality of rendered thumbnails.
+* Added configurable options at the top of Resources\Scripts\renderAssets.py.
 
 ### V0.2 - 2/6/2025
 * Fixed issue where thumbnails would not update when using the Check For Library Update button.

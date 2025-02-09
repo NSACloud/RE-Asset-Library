@@ -8,6 +8,22 @@ from zlib import crc32
 import time
 from mathutils import Vector
 
+#------Render Settings
+IMAGE_RES = 256
+
+HDRI_ROT = (0.0,0.0,155.0)#Euler in degrees
+HDRI_STRENGTH = 2.0
+EXPOSURE = 0.5
+
+CAMERA_DISTANCE = 1.7#Relative to object bbox size
+CAMERA_ROT = (55.0,0.0,45.0)
+
+#-------
+
+#Convert to radians
+CAMERA_ROT = (math.radians(CAMERA_ROT[0]),math.radians(CAMERA_ROT[1]),math.radians(CAMERA_ROT[2]))
+HDRI_ROT = (math.radians(HDRI_ROT[0]),math.radians(HDRI_ROT[1]),math.radians(HDRI_ROT[2]))
+
 # Python module to redirect the sys.stdout
 from contextlib import redirect_stdout
 import sys
@@ -47,10 +63,11 @@ def setupScene(hdriPath):
     bpy.context.scene.eevee.use_raytracing = True
     bpy.context.scene.view_settings.view_transform = "AgX"
     bpy.context.scene.view_settings.look = "AgX - Medium High Contrast"
+    bpy.context.scene.view_settings.exposure = EXPOSURE
     #Output
-    bpy.context.scene.render.resolution_x = 512
-    bpy.context.scene.render.resolution_y = 512
-    bpy.context.scene.render.resolution_percentage = 50
+    bpy.context.scene.render.resolution_x = IMAGE_RES
+    bpy.context.scene.render.resolution_y = IMAGE_RES
+    bpy.context.scene.render.resolution_percentage = 100
     
     #World
     if bpy.context.scene.world != None:
@@ -61,11 +78,28 @@ def setupScene(hdriPath):
         nodes = nodeTree.nodes
         links = nodeTree.links
         
-        currentPos = [0,0]
+        currentPos = [-600,0]
+        
+        texCoordNode = nodes.new('ShaderNodeTexCoord')
+        texCoordNode.location = currentPos
+        currentPos[0] += 300
+        
+        mappingNode = nodes.new('ShaderNodeMapping')
+        mappingNode.location = currentPos
+        
+        mappingNode.inputs["Rotation"].default_value = HDRI_ROT
+        
+        links.new(texCoordNode.outputs["Generated"],mappingNode.inputs["Vector"])
+        
+        currentPos[0] += 300
+        
         imageNode = nodes.new('ShaderNodeTexEnvironment')
         imageNode.name = "HDRI"
         imageNode.label = "HDRI"
         imageNode.location = currentPos
+        
+        links.new(mappingNode.outputs["Vector"],imageNode.inputs["Vector"])
+		
         imageData = None
         if os.path.isfile(hdriPath):
             imageData = bpy.data.images.load(hdriPath,check_existing = True)
@@ -81,7 +115,7 @@ def setupScene(hdriPath):
         bgNode.label = "Background"
         bgNode.location = currentPos
         
-        bgNode.inputs["Strength"].default_value = 1.1
+        bgNode.inputs["Strength"].default_value = HDRI_STRENGTH
         links.new(imageNode.outputs["Color"],bgNode.inputs["Color"])
         
         currentPos[0] += 300
@@ -96,6 +130,7 @@ def setupScene(hdriPath):
 def alignCameraToObject(target):
     cameraObj = getCamera("AssetThumbnailCamera")
     cameraObj.data.clip_end = 100000
+    cameraObj.data.clip_start = 0.01
     cameraObj.location = (0.0,0.0,0.0)
     cameraObj.rotation_euler = (0.0,0.0,0.0)
     
@@ -104,7 +139,7 @@ def alignCameraToObject(target):
     else:
         emptyObj = bpy.data.objects.new("CameraHelper",None)
         bpy.context.scene.collection.objects.link(emptyObj)
-    emptyObj.rotation_euler = (math.radians(55),0.0,math.radians(45))
+    emptyObj.rotation_euler = CAMERA_ROT
     bpy.context.scene.camera = cameraObj
 
     o = bpy.data.objects["Mesh Bounding Box"]
@@ -113,7 +148,7 @@ def alignCameraToObject(target):
 
     emptyObj.location = global_bbox_center
     
-    cameraObj.location[2] = max(o.dimensions) * 1.7
+    cameraObj.location[2] = max(o.dimensions) * CAMERA_DISTANCE
     cameraObj.parent = emptyObj 
    
 
