@@ -35,6 +35,7 @@ def getChunkPathList(gameName):
 
 def importREMeshAsset(obj,gameInfo,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
+	print("Game Name: "+str(obj.get("~GAME")))
 	chunkPathList = getChunkPathList(obj.get("~GAME"))
 	if len(chunkPathList) == 0:
 		showErrorMessageBox("No chunk paths found for "+obj["~GAME"]+ " in RE Mesh Editor preferences.")
@@ -42,10 +43,11 @@ def importREMeshAsset(obj,gameInfo,assetPreferences):
 		meshPath = None
 		if len(chunkPathList) != 0 and gameInfo != None:
 			for chunkPath in chunkPathList:
-				newPath = os.path.join(chunkPath,obj.get("assetPath","MISSING_MESH_PATH")+"."+gameInfo["fileVersionDict"]["MESH_VERSION"])
+				newPath = os.path.join(bpy.path.abspath(chunkPath),obj.get("assetPath","MISSING_MESH_PATH")+"."+gameInfo["fileVersionDict"]["MESH_VERSION"])
+				print(f"Checking for file at: {newPath}")
 				if os.path.isfile(newPath):
 					meshPath = newPath
-					print(f"Found mesh path: {meshPath}")
+					print(f"Found mesh path")
 					break
 				
 				
@@ -81,6 +83,8 @@ def importREMeshAsset(obj,gameInfo,assetPreferences):
 									#activeObj = meshCollection.all_objects[0]
 									meshObj.select_set(True)
 									#bpy.context.view_layer.objects.active = activeObj
+			else:
+				showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
 
 					
 				
