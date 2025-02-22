@@ -4,8 +4,8 @@ import bpy
 import os
 
 
-from .gen_functions import splitNativesPath,raiseWarning
-from .blender_utils import showErrorMessageBox
+from ..gen_functions import splitNativesPath,raiseWarning
+from ..blender_utils import showErrorMessageBox
 
 
 
@@ -32,7 +32,22 @@ def getChunkPathList(gameName):
 		#print(chunkPathList)
 	return chunkPathList
 
-
+def addChunkPath(chunkPath,gameName):
+	meshEditorPreferencesName = findREMeshEditorAddon()
+	ADDON_PREFERENCES = bpy.context.preferences.addons[meshEditorPreferencesName].preferences
+	foundExisting = False
+	for item in ADDON_PREFERENCES.chunkPathList_items:
+		if item.gameName == gameName and item.path == chunkPath:
+			foundExisting = True
+			break
+		
+	if not foundExisting:
+		item = ADDON_PREFERENCES.chunkPathList_items.add()
+		item.gameName = gameName
+		item.path = chunkPath
+		print(f"Saved chunk path for {gameName}: {chunkPath}")
+		bpy.ops.wm.save_userpref()
+	
 def importREMeshAsset(obj,gameInfo,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
 	print("Game Name: "+str(obj.get("~GAME")))
@@ -118,6 +133,8 @@ def importREChainAsset(obj,gameInfo,assetPreferences):
 					bpy.ops.re_chain.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName)
 				else:
 					showErrorMessageBox("RE Chain Editor is not installed. Chain files can't be imported.")	
+			else:
+				showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
 def importREChain2Asset(obj,gameInfo,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
 	chunkPathList = getChunkPathList(obj.get("~GAME"))
@@ -148,3 +165,6 @@ def importREChain2Asset(obj,gameInfo,assetPreferences):
 					bpy.ops.re_chain2.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName)
 				else:
 					showErrorMessageBox("RE Chain Editor is not installed. Chain files can't be imported.")
+					
+			else:
+				showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")

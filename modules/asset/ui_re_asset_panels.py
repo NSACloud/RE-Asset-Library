@@ -1,3 +1,4 @@
+#Author: NSA Cloud
 import bpy
 
 from bpy.types import (Panel,
@@ -22,6 +23,7 @@ class OBJECT_PT_REAssetLibraryPanel(Panel):
 		scene = context.scene
 		#re_chain_toolpanel = scene.re_chain_toolpanel
 		layout = self.layout
+		layout.operator("re_asset.check_for_library_update",icon="IMPORT")
 		layout.label(text = "Thumnbnail Tools")
 		layout.operator("re_asset.render_re_asset_thumbnails", icon = "SCENE")
 		layout.operator("re_asset.fetch_re_asset_thumbnails", icon = "RENDERLAYERS")
@@ -30,7 +32,7 @@ class OBJECT_PT_REAssetLibraryPanel(Panel):
 		layout.operator("re_asset.save_to_catalog", icon = "FILE_TICK")
 		layout.operator("re_asset.export_catalog_diff", icon = "INTERNET")
 		#layout.operator("re_asset.import_catalog_diff", icon = "IMPORT")#TODO
-		layout.operator("re_asset.check_for_library_update",icon="IMPORT")#Temp Testing
 		layout.label(text = "Export Tools")
+		layout.operator("re_asset.open_library_folder")
 		layout.operator("re_asset.package_re_asset_library")
 		

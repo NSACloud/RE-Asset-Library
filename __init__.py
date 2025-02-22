@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 4),
+	"version": (0, 5),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -21,17 +21,35 @@ import queue
 import shutil
 import subprocess
 
-from .modules.gen_functions import formatByteSize
+from .modules.gen_functions import formatByteSize,resolvePath,wildCardFileSearch
+from .modules.blender_utils import showErrorMessageBox
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, CollectionProperty,PointerProperty
 from bpy.types import Operator,AddonPreferences
 
-from .modules.blender_re_asset import (
+from .modules.pak.re_pak_operators import (
+	WM_OT_PromptSetExtractInfo,
+	WM_OT_SetExtractInfo,
+	WM_OT_ExtractGameFiles,
+	WM_OT_OpenExtractFolder,
+	WM_OT_ReloadPakCache,
+	
+)
+from .modules.pak.re_pak_utils import (
+	extractFilesFromPakCache,
+
+)
+
+from .modules.asset.re_asset_utils import (
+	buildNativesPathFromObj,
+
+)
+from .modules.asset.blender_re_asset import (
 	importREMeshAsset,
 	importREChainAsset,
 	importREChain2Asset,
 	)
-from .modules.re_asset_operators import (
+from .modules.asset.re_asset_operators import (
 	getAssetLibrary,
 	unzipLibrary,
 	loadGameInfo,
@@ -39,6 +57,7 @@ from .modules.re_asset_operators import (
 	downloadFileContent,
 	getFileCRC,
 	download_file_from_google_drive,
+	getChunkPathList,
 	
 	WM_OT_RenderREAssets,
 	WM_OT_FetchREAssetThumbnails,
@@ -49,21 +68,32 @@ from .modules.re_asset_operators import (
 	WM_OT_PackageREAssetLibrary,
 	WM_OT_InitializeREAssetLibrary,
 	WM_OT_CheckForREAssetLibraryUpdate,
+	WM_OT_OpenLibraryFolder,
 	
 	REToolListFileToREAssetCatalogAndGameInfo,
+	
 
 )
-from .modules.re_asset_propertyGroups import (
+from .modules.asset.re_asset_propertyGroups import (
 	REAssetWhiteListEntryPropertyGroup,
 	ASSET_UL_FileTypeWhiteList,
 	REAssetLibEntryPropertyGroup,
 	ASSET_UL_REAssetLibList,
 
 )
-from .modules.ui_re_asset_panels import (
+
+
+from .modules.asset.ui_re_asset_panels import (
 	OBJECT_PT_REAssetLibraryPanel,
 	)
+from .modules.pak.re_pak_propertyGroups import (
+	ToggleStringPropertyGroup,
+	ASSET_UL_StringCheckList,
 
+)
+from .modules.pak.ui_re_pak_panels import (
+	OBJECT_PT_ExtractGameFilesPanel,
+	)
 class LIST_OT_NewWhiteListItem(Operator):
 	bl_idname = "re_asset.new_whitelist_item"
 	bl_label = "Add File Type"
@@ -303,6 +333,7 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 					item = self.assetLibList_items.add()
 					item.gameName = entry["gameName"]
 					item.displayName = entry["displayName"]
+					item.releaseDescription = entry.get("releaseDescription","")
 					item.timestamp = entry["timestamp"]
 					item.CRC = str(entry["CRC"])
 					item.compressedSize = str(entry["compressedSize"])
@@ -324,6 +355,7 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 			box.label(text = f"Library Name: {entry.gameName}")
 			
 			box.separator()
+			box.label(text = entry.releaseDescription)
 			box.label(text = f"Last Update: {entry.timestamp}")
 			
 			box.label(text = f"Download Size: {formatByteSize(int(entry.compressedSize))}")
@@ -510,14 +542,57 @@ class WM_OT_SetREAssetSettings(Operator):
 		self.report({"INFO"},"Set RE Asset settings.")
 		return {'FINISHED'}
 	
-	def invoke(self,context,event):
-		
-		#self.OverrideDamping = 
-		
-		return context.window_manager.invoke_props_dialog(self)
 
+class WM_OT_OpenFileLocation(Operator):
+	bl_label = "Open Asset Location"
+	bl_description = "Open the location the selected RE Asset is saved to.\nNote that the file has to be extracted to be able to find it's location"
+	bl_idname = "re_asset_library.open_file_location"
+	bl_context = "objectmode"
+	bl_options = {'INTERNAL'}
+	
+	@classmethod
+	def poll(self,context):
+		return context.asset
+
+	
+	def execute(self, context):
+		if context.asset:
+			asset = context.asset
+			#print(f"{asset.name=}")
+			#print(f"{asset.metadata.description}")
+			realPath = None
+			filePath = asset.metadata.description.replace("/",os.sep).replace("\\",os.sep)
+			libPath = asset.full_library_path
+			if libPath == "":#current file
+				libPath = bpy.context.blend_data.filepath
+			#print(libPath)
+			split = os.path.split(libPath)[1].split("REAssetLibrary_")
+			if len(split) == 2:	
+				
+				gameName = split[1].split(".blend")[0].upper()
+				chunkList = getChunkPathList(gameName)
+				if len(chunkList) != 0:
+					for chunkPath in chunkList:
+						realPath = wildCardFileSearch(os.path.join(chunkPath,filePath)+".*")
+						if realPath != None:
+							os.startfile(os.path.split(realPath)[0])
+							self.report({"INFO"},"Opened file location.")
+							break
+						
+					if realPath == None:
+						self.report({"ERROR"},"File not found. It might not be extracted.\nDrag it from the library into the 3D view to extract it.")
+				else:
+					self.report({"ERROR"},f"No chunk paths for {gameName} are present.")		
+			
+			else:
+				self.report({"ERROR"},"Asset is not an RE Asset.")		
+		
+		return {'FINISHED'}
+	
 def re_asset_settings_button(self, context):
     self.layout.operator(WM_OT_SetREAssetSettings.bl_idname,icon = "SETTINGS")
+def re_asset_open_file_location_button(self, context):
+    self.layout.operator(WM_OT_OpenFileLocation.bl_idname,icon = "FOLDER_REDIRECT")
 
 
 execution_queue = queue.Queue()
@@ -546,6 +621,9 @@ def REAssetPostHandler(lapp_context):
 	gameInfoPath = None
 	gameInfo = None
 	
+	assetPath = None
+	
+	
 	if len(lapp_context.import_items) == 1:#Make sure it's an asset drag and drop
 		item = lapp_context.import_items[0]
 		if item.id.get("~TYPE") == "RE_ASSET_LIBRARY_ASSET":
@@ -559,16 +637,62 @@ def REAssetPostHandler(lapp_context):
 			assetType = item.id.get("assetType","UNKN")
 			bpy.context.scene["lastREAsset"] = item.id.name
 			if gameInfo != None:
-				match assetType:
-					case "MESH":
-						importREMeshAsset(item.id,gameInfo,addonPreferences)
-					case "CHAIN":
-						importREChainAsset(item.id,gameInfo,addonPreferences)
-					case "CHAIN2":
-						importREChain2Asset(item.id,gameInfo,addonPreferences)
-					case _:
-						print(f"RE Asset Library - Unsupported Asset Type, cannot import. {item.id.name} - {assetType} ")
-						print("Make sure all RE addons are up to date.")
+				
+				promptSetExtractInfo = False
+				#Find asset path
+				chunkPathList = getChunkPathList(item.id.get("~GAME"))
+				#if len(chunkPathList) == 0:
+				#	promptSetExtractInfo = True
+					#showErrorMessageBox("No chunk paths found for "+obj["~GAME"]+ " in RE Mesh Editor preferences.")
+				#else:
+				if len(chunkPathList) != 0:
+					for chunkPath in chunkPathList:
+						newPath = resolvePath(os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")))
+						print(f"Checking for file at: {newPath}")
+						if os.path.isfile(newPath):
+							assetPath = newPath
+							print(f"Found asset path")
+							checkedPak = True
+							break
+				else:
+					promptSetExtractInfo = True
+				if assetPath == None:
+					extractInfoPath = os.path.join(os.path.split(item.source_library.filepath)[0],"ExtractInfo_"+item.id.get("~GAME","UNKN")+".json")
+					pakCachePath = os.path.join(os.path.split(item.source_library.filepath)[0],"PakCache_"+item.id.get("~GAME","UNKN")+".pakcache")
+					
+					if not os.path.isfile(extractInfoPath):#File extraction is not set up
+						promptSetExtractInfo = True
+						checkedPak = True
+					else:
+						if not promptSetExtractInfo and item.id.get("assetPath"):
+							extractFilesFromPakCache(gameInfoPath,[],extractInfoPath,pakCachePath,extractDependencies = True,blenderAssetObj = item.id)
+							for chunkPath in chunkPathList:
+								newPath = resolvePath(os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")))
+								print(f"Checking for file at: {newPath}")
+								if os.path.isfile(newPath):
+									assetPath = newPath
+									print(f"Found asset path")
+									checkedPak = True
+									break	
+							if assetPath == None:
+								showErrorMessageBox(item.id.get("assetPath",item.id.name)+" - File not found at any chunk paths.")
+			
+				if assetPath != None:
+					match assetType:
+						case "MESH":
+							importREMeshAsset(item.id,gameInfo,addonPreferences)
+						case "CHAIN":
+							importREChainAsset(item.id,gameInfo,addonPreferences)
+						case "CHAIN2":
+							importREChain2Asset(item.id,gameInfo,addonPreferences)
+						case _:
+							print(f"RE Asset Library - Unsupported Asset Type, cannot import. {item.id.name} - {assetType} ")
+							print("Make sure all RE addons are up to date.")
+					
+					
+					
+			if promptSetExtractInfo:
+				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = item.source_library.filepath)
 			
 			if not bpy.app.timers.is_registered(execute_queued_functions()):
 				bpy.app.timers.register(execute_queued_functions)
@@ -587,7 +711,14 @@ classes = [
 	LIST_OT_ResetWhiteListItems,
 	REAssetPreferences,
 	
+	ToggleStringPropertyGroup,
+	ASSET_UL_StringCheckList,
 	
+	WM_OT_PromptSetExtractInfo,
+	WM_OT_SetExtractInfo,
+	WM_OT_ExtractGameFiles,
+	WM_OT_OpenExtractFolder,
+	WM_OT_ReloadPakCache,
 	
 	WM_OT_InitializeREAssetLibrary,
 	WM_OT_DownloadREAssetLibrary,
@@ -595,11 +726,13 @@ classes = [
 	WM_OT_DetectREAssetLibrary,
 	WM_OT_OpenREAssetLibraryFolder,
 	WM_OT_CheckForREAssetLibraryUpdate,
+	WM_OT_OpenLibraryFolder,
 	
 	ImportREAssetLib,
 	
 	
 	WM_OT_SetREAssetSettings,
+	WM_OT_OpenFileLocation,
 	WM_OT_RenderREAssets,
 	WM_OT_FetchREAssetThumbnails,
 	WM_OT_ImportREAssetLibraryFromCatalog,
@@ -607,7 +740,10 @@ classes = [
 	WM_OT_ExportCatalogDiff,
 	WM_OT_ImportCatalogDiff,
 	WM_OT_PackageREAssetLibrary,
+	OBJECT_PT_ExtractGameFilesPanel,
 	OBJECT_PT_REAssetLibraryPanel,
+	
+	
 	]
 
 def on_register():
@@ -620,6 +756,7 @@ def register():
 		bpy.utils.register_class(classEntry)
 		
 	bpy.types.ASSETBROWSER_MT_editor_menus.append(re_asset_settings_button)
+	bpy.types.ASSETBROWSER_MT_editor_menus.append(re_asset_open_file_location_button)
 	bpy.app.handlers.blend_import_post.append(REAssetPostHandler)
 	bpy.app.timers.register(on_register, first_interval=.01)
 	
@@ -629,6 +766,7 @@ def unregister():
 	for classEntry in classes:
 		bpy.utils.unregister_class(classEntry)
 	bpy.types.ASSETBROWSER_MT_editor_menus.remove(re_asset_settings_button)
+	bpy.types.ASSETBROWSER_MT_editor_menus.remove(re_asset_open_file_location_button)
 	if REAssetPostHandler in bpy.app.handlers.blend_import_post:
 		bpy.app.handlers.blend_import_post.remove(REAssetPostHandler)
 if __name__ == '__main__':

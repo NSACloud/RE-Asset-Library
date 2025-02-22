@@ -15,9 +15,9 @@ from io import StringIO
 import requests
 
 from bpy.types import Operator
-from .gen_functions import splitNativesPath,wildCardFileSearch,progressBar,formatByteSize
+from ..gen_functions import splitNativesPath,wildCardFileSearch,progressBar,formatByteSize
 from .blender_re_asset import getChunkPathList
-from .blender_utils import showMessageBox
+from ..blender_utils import showMessageBox
 CRC_INFO_VERSION = 1
 def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputGameInfoPath,fileTypeWhiteList = ["mesh","chain","chain2"]):
 	GAMEINFO_VERSION = 1#For determining when changes are made to the structure of gameinfo files
@@ -97,7 +97,7 @@ def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputG
 		outputFile.write("File Path\tDisplay Name\tCategory (Forward Slash Separated)\tTags (Comma Separated)\tPlatform Extension\tLanguage Extension\n")#Write header line
 		for line in sorted(lines):
 			
-			if "streaming" not in line and line.lower() not in readLineSet and os.path.split(line)[1].count(".") > 1:#Prevent duplicate entries
+			if "streaming" not in line.lower() and line.lower() not in readLineSet and os.path.split(line)[1].count(".") > 1:#Prevent duplicate entries
 				readLineSet.add(line.lower())
 				
 				split = os.path.split(line.strip())[1].split(".")
@@ -132,7 +132,7 @@ def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputG
 				elif len(split) == 5:
 					platformExtension = split[3]
 					langExtension = split[4]
-				filePath = os.path.join(splitNativesPath(os.path.split(line)[0])[1],f"{fileName}.{fileType}")
+				filePath = os.path.join(splitNativesPath(os.path.split(line)[0])[1],f"{fileName}.{fileType}").replace("\\","/").replace(os.sep,"/")
 				displayName = fileName+"."+fileType
 				
 				if platformExtension != "":
@@ -306,7 +306,7 @@ class WM_OT_RenderREAssets(Operator):
 	bl_description = "Renders thumbnails for all RE assets of a supported type.\nThis will open a new blend file and will take a long time.\nOnly assets without existing thumbnails will be rendered.\nA lot of storage space will be used for cached textures. Consider clearing RE Mesh Editor's texture cache folder after rendering"
 	bl_options = {'INTERNAL'}
 	def execute(self, context):
-		addonDir = os.path.dirname(os.path.dirname(__file__))
+		addonDir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 		hdriPath = os.path.join(addonDir,"Resources","HDRI","thumbnailRenderEnvTexture.hdr")
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
 		rendererBlendPath = os.path.join(addonDir,"Resources","Blend","assetRenderer.blend")#This may seem pointless, it's a blank blend file. However, if blender's default startup is used, it'll cause textures to show up pink in the render for whatever reason.
@@ -380,6 +380,8 @@ class WM_OT_RenderREAssets(Operator):
 				
 			if not foundAssets:
 				print("No renderable files found. This may mean that the chunk path is not correct.\nIf files in the library can not be found in any chunk paths, they can't be rendered.")
+			if not os.path.isfile(scriptPath):
+				print(f"{scriptPath} is missing.")
 			self.report({"ERROR"},"Could not start asset render job. See console. (Window > Toggle System Console)")
 		return {'FINISHED'}
 	@classmethod
@@ -400,7 +402,7 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 		if bpy.context.scene.get("isREAssetLibrary"):
 			gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
 			print("\nFetching RE Asset Thumbnails...")
-			addonThumbnailDir = os.path.join(os.path.dirname(os.path.dirname(__file__)),"Resources","Icons")
+			addonThumbnailDir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),"Resources","Icons")
 			blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
 			thumbnailDirectory = os.path.join(blendDir,f"REAssetLibrary_{gameName}_thumbnails")
 			#currentThumbnailIndex = 0
@@ -559,7 +561,7 @@ def loadREAssetCatalogFile(tsvPath,fileTypeWhiteListSet = set()):
 		for row in rd:
 			
 			#Check if file extension is in the whitelist
-			if os.path.splitext(row[0])[1][1:].lower() in fileTypeWhiteListSet or loadAll:
+			if loadAll or os.path.splitext(row[0])[1][1:].lower() in fileTypeWhiteListSet:
 				assetEntryList.append(row)
 	return assetEntryList
 def loadREAssetCatalogData(tsvData,fileTypeWhiteListSet = set()):
@@ -1104,6 +1106,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 	
 	URL: bpy.props.StringProperty(default="", options = {"HIDDEN"})
 	CRC: bpy.props.StringProperty(default="0", options = {"HIDDEN"})
+	releaseDescription: bpy.props.StringProperty(default="", options = {"HIDDEN"})
 	timestamp: bpy.props.StringProperty(default="0", options = {"HIDDEN"})
 	downloadSize: bpy.props.StringProperty(default="0", options = {"HIDDEN"})
 	updateIsAvailable: bpy.props.BoolProperty(default = False, options = {"HIDDEN"})
@@ -1154,6 +1157,9 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
 		gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
 		packageInfoPath = os.path.join(blendDir,f"packageInfo_{gameName}.json")
+		
+		
+		
 		directoryDict = downloadREAssetLibDirectory()
 		libDirectoryEntry = None
 		if directoryDict != None:
@@ -1167,6 +1173,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 		if libDirectoryEntry != None:
 			self.CRC = str(entry["CRC"])
 			self.URL = entry["URL"]
+			self.releaseDescription = entry.get("releaseDescription","")
 			self.timestamp = entry["timestamp"]
 			self.downloadSize = str(entry["compressedSize"])
 		timestamp = "0"
@@ -1188,7 +1195,20 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 		layout = self.layout
 		if self.updateIsAvailable:
 			layout.label(text="An update is available.")
+			layout.label(text=self.releaseDescription)
 			layout.label(text=f"Update Date: {self.timestamp}")
 			layout.label(text = f"Download Size: {formatByteSize(int(self.downloadSize))}")
 		else:
 			layout.label(text="Asset library is up to date.")
+
+class WM_OT_OpenLibraryFolder(Operator):
+	bl_label = "Open Library Folder"
+	bl_description = "Opens the folder containing this blend file."
+	bl_idname = "re_asset.open_library_folder"
+
+	def execute(self, context):
+		try:
+			os.startfile(os.path.split(bpy.context.blend_data.filepath)[0])
+		except:
+			pass
+		return {'FINISHED'}

@@ -38,6 +38,10 @@ class REAssetLibEntryPropertyGroup(bpy.types.PropertyGroup):
         name="Game Name",
 		default = "GAME",
     )
+	releaseDescription: bpy.props.StringProperty(
+        name="Release Description",
+		default = "",
+    )
 	timestamp: bpy.props.StringProperty(
         name="Package Date",
 		default = "TIME",

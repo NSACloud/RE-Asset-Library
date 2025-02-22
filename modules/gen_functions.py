@@ -4,6 +4,7 @@ import os
 import struct
 import glob
 from pathlib import Path
+import platform
 #---General Functions---#
 os.system("color")#Enable console colors
 class textColors:
@@ -243,3 +244,14 @@ def progressBar(iterable, prefix = '', suffix = '', decimals = 1, length = 100, 
         printProgressBar(i + 1)
     # Print New Line on Complete
     print()
+	
+
+IS_WINDOWS = platform.system() == 'Windows'
+def resolvePath(pathString):
+	if IS_WINDOWS:
+		return pathString
+	else:#Fix issues related to case sensitive paths on linux, doesn't matter on windows
+		newPath = pathString.replace("/",os.sep).replace("\\",os.sep)
+		if not os.path.isfile(newPath):#Lower case the path in case the pak list is lowercased
+			newPath = newPath.lower()
+			return newPath
