@@ -8,8 +8,9 @@
 This Blender addon adds the ability to browse through RE Engine models and other files inside the asset browser.
 ### [Download RE Asset Library](https://github.com/NSACloud/RE-Asset-Library/archive/refs/heads/main.zip)
 
-https://github.com/user-attachments/assets/428129b3-9e28-4495-92b9-9f48da8724ee
+**Video Guide**
 
+[![RE Asset Library Yotube Video Guide](https://github.com/user-attachments/assets/9799239b-e676-42e6-83fe-3679ac1d2103)](https://www.youtube.com/watch?v=jLM3wbEFANg)
 
 ## Features
  - Game files can be extracted automatically as assets are imported.
