@@ -203,7 +203,10 @@ If the file is present on the system, it will be imported by an addon associated
 
 ## Change Log
 
-### V0.6 - 2/22/2025
+### V0.7 - 2/28/2025
+* Fixed issue where reading paks would fail on MH Wilds if the HD texture pack is installed.
+
+### V0.6 - 2/28/2025
 * Thumbnails now use lossy compression, reducing the download sizes of each library by roughly 50%.
 
 All libraries have been updated to use compressed thumbnails.
