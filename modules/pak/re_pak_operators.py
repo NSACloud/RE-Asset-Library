@@ -374,6 +374,7 @@ class WM_OT_ExtractGameFiles(Operator):
 				else:
 					item.path = entry
 			
+			self.pakList_items.clear()
 			for entry in pakPriorityList:
 				newPath = os.path.relpath(entry,self.gameDir)#Start paths from game dir
 				item = self.pakList_items.add()

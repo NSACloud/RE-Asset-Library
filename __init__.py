@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 5),
+	"version": (0, 6),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -156,7 +156,10 @@ class REAssetPreferences(AddonPreferences):
 	   name = "Instance Duplicates",
 	   description = "If a mesh is imported more than once, create an instance of previously imported mesh.\nNOTE: The Create Collections import option must be enabled",
 	   default = True)
-	
+	forceExtract : BoolProperty(
+	   name = "Force Extract Files",
+	   description = "When dragging an asset from the browser, force files to be extracted from the game files.\nUse this option when there's a game update and you need the latest version of a file.",
+	   default = False)
 	
 	fileTypeWhiteList_items: bpy.props.CollectionProperty(type=REAssetWhiteListEntryPropertyGroup)
 	fileTypeWhiteList_index: bpy.props.IntProperty(name="")
@@ -223,6 +226,7 @@ class REAssetPreferences(AddonPreferences):
 		layout.prop(self,"showMeshImportOptions")
 		layout.prop(self,"placeAtCursor")
 		#layout.prop(self,"instanceDuplicates")
+		layout.prop(self,"forceExtract")
 		addon_updater_ops.update_settings_ui(self,context)
 
 
@@ -513,6 +517,11 @@ class WM_OT_SetREAssetSettings(Operator):
 	   description = "If a mesh is imported more than once, create an instance of previously imported mesh.\nNOTE: The Create Collections import option must be enabled",
 	   default = True)
 	
+	forceExtract : BoolProperty(
+	   name = "Force Extract Files",
+	   description = "When dragging an asset from the browser, force files to be extracted from the game files.\nUse this option when there's a game update and you need the latest version of a file.",
+	   default = False)
+	
 	
 	
 	def draw(self,context):
@@ -520,6 +529,7 @@ class WM_OT_SetREAssetSettings(Operator):
 		layout.prop(self,"showMeshImportOptions")
 		layout.prop(self,"placeAtCursor")
 		#layout.prop(self,"instanceDuplicates")#TODO
+		layout.prop(self,"forceExtract")
 		
 	@classmethod
 	def poll(self,context):
@@ -530,6 +540,7 @@ class WM_OT_SetREAssetSettings(Operator):
 		self.showMeshImportOptions = preferences.showMeshImportOptions
 		self.placeAtCursor = preferences.placeAtCursor
 		self.instanceDuplicates = preferences.instanceDuplicates
+		self.forceExtract = preferences.forceExtract
 		
 		return context.window_manager.invoke_props_dialog(self)
 	def execute(self, context):
@@ -538,6 +549,7 @@ class WM_OT_SetREAssetSettings(Operator):
 		preferences.showMeshImportOptions = self.showMeshImportOptions
 		preferences.placeAtCursor = self.placeAtCursor
 		preferences.instanceDuplicates = self.instanceDuplicates
+		preferences.forceExtract = self.forceExtract
 		
 		self.report({"INFO"},"Set RE Asset settings.")
 		return {'FINISHED'}
@@ -647,32 +659,29 @@ def REAssetPostHandler(lapp_context):
 				#else:
 				if len(chunkPathList) != 0:
 					for chunkPath in chunkPathList:
-						newPath = resolvePath(os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")))
+						newPath = os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")).replace("/",os.sep).replace("\\",os.sep)
 						print(f"Checking for file at: {newPath}")
 						if os.path.isfile(newPath):
 							assetPath = newPath
 							print(f"Found asset path")
-							checkedPak = True
 							break
 				else:
 					promptSetExtractInfo = True
-				if assetPath == None:
+				if assetPath == None or addonPreferences.forceExtract:
 					extractInfoPath = os.path.join(os.path.split(item.source_library.filepath)[0],"ExtractInfo_"+item.id.get("~GAME","UNKN")+".json")
 					pakCachePath = os.path.join(os.path.split(item.source_library.filepath)[0],"PakCache_"+item.id.get("~GAME","UNKN")+".pakcache")
 					
 					if not os.path.isfile(extractInfoPath):#File extraction is not set up
 						promptSetExtractInfo = True
-						checkedPak = True
 					else:
 						if not promptSetExtractInfo and item.id.get("assetPath"):
 							extractFilesFromPakCache(gameInfoPath,[],extractInfoPath,pakCachePath,extractDependencies = True,blenderAssetObj = item.id)
 							for chunkPath in chunkPathList:
-								newPath = resolvePath(os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")))
+								newPath = os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")).replace("/",os.sep).replace("\\",os.sep)
 								print(f"Checking for file at: {newPath}")
 								if os.path.isfile(newPath):
 									assetPath = newPath
 									print(f"Found asset path")
-									checkedPak = True
 									break	
 							if assetPath == None:
 								showErrorMessageBox(item.id.get("assetPath",item.id.name)+" - File not found at any chunk paths.")
@@ -680,11 +689,11 @@ def REAssetPostHandler(lapp_context):
 				if assetPath != None:
 					match assetType:
 						case "MESH":
-							importREMeshAsset(item.id,gameInfo,addonPreferences)
+							importREMeshAsset(item.id,assetPath,addonPreferences)
 						case "CHAIN":
-							importREChainAsset(item.id,gameInfo,addonPreferences)
+							importREChainAsset(item.id,assetPath,addonPreferences)
 						case "CHAIN2":
-							importREChain2Asset(item.id,gameInfo,addonPreferences)
+							importREChain2Asset(item.id,assetPath,addonPreferences)
 						case _:
 							print(f"RE Asset Library - Unsupported Asset Type, cannot import. {item.id.name} - {assetType} ")
 							print("Make sure all RE addons are up to date.")

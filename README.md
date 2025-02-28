@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.5 (2/22/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.6 (2/28/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 
 **BETA RELEASE, THERE MAY BE BUGS**
 
@@ -202,6 +202,15 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.6 - 2/22/2025
+* Thumbnails now use lossy compression, reducing the download sizes of each library by roughly 50%.
+
+All libraries have been updated to use compressed thumbnails.
+
+* Fixed issues with filepaths when extracting files on Linux.
+* Added Force Extract Files setting, this makes it so files will always be extracted when imported, rather than reading already extracted ones.
+* Other minor bug fixes.
 
 ### V0.5 - 2/22/2025
 * Added pak extraction capabilities. 

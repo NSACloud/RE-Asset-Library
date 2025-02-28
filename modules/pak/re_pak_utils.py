@@ -439,7 +439,7 @@ def extractPakFromFileInfo(fileInfoList,pakPath,outDir,extractDependencies = Tru
 				
 				
 				
-				outPath = os.path.join(outDir,filePath.replace("/",os.sep))
+				outPath = os.path.join(outDir,filePath).replace("/",os.sep).replace("\\",os.sep)
 				
 				if extractDependencies:
 					if ".mdf2." in filePath:

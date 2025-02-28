@@ -19,6 +19,10 @@ from ..gen_functions import splitNativesPath,wildCardFileSearch,progressBar,form
 from .blender_re_asset import getChunkPathList
 from ..blender_utils import showMessageBox
 CRC_INFO_VERSION = 1
+
+#IMAGE_FORMAT = ".png"
+IMAGE_FORMAT = ".jp2"
+
 def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputGameInfoPath,fileTypeWhiteList = ["mesh","chain","chain2"]):
 	GAMEINFO_VERSION = 1#For determining when changes are made to the structure of gameinfo files
 
@@ -226,7 +230,7 @@ def zipLibrary(blendDir,gameName):
 			zf.write(packageInfoPath, arcname=f"{gameName}\packageInfo_{gameName}.json")
 			for file in os.scandir(thumbnailDir):
 		        
-				if file.name.endswith(".png"):
+				if file.name.endswith(IMAGE_FORMAT):
 					uncompressedSize += os.path.getsize(os.path.join(thumbnailDir,file.name))
 					#CRCInfoDict["imageCRCDict"][file.name]=getFileCRC(os.path.join(thumbnailDir,file.name))
 					#print(file.name)
@@ -344,7 +348,7 @@ class WM_OT_RenderREAssets(Operator):
 					match assetType:
 						case "MESH":
 							
-							hashedPath = str(crc32(str(obj["assetPath"].lower()).encode("utf-8")))+".png"
+							hashedPath = str(crc32(str(obj["assetPath"].lower()).encode("utf-8")))+IMAGE_FORMAT
 							#print(hashedPath)
 							fullThumbnailPath = os.path.join(thumbnailDirectory,hashedPath)
 							#print(fullThumbnailPath)
@@ -408,7 +412,10 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 			#currentThumbnailIndex = 0
 			assetCollection = bpy.data.collections.get("RE Assets")
 			if os.path.isdir(thumbnailDirectory) and assetCollection != None:
-				bpy.ops.wm.console_toggle()
+				try:
+					bpy.ops.wm.console_toggle()
+				except:
+					pass
 				
 				assetCount = len(assetCollection.objects)
 				CRCInfoPath = os.path.join(blendDir,f"CRCInfo_{gameName}.json")
@@ -425,14 +432,14 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 					if obj.get("~TYPE") == "RE_ASSET_LIBRARY_ASSET":
 						assetType = obj.get("assetType")
 						
-						hashedPath = os.path.split(obj["assetPath"].lower())[1]+"-" + str(crc32(str(obj["assetPath"].lower()).encode("utf-8")))+".png"
+						hashedPath = os.path.split(obj["assetPath"].lower())[1]+"-" + str(crc32(str(obj["assetPath"].lower()).encode("utf-8")))+IMAGE_FORMAT
 						#print(hashedPath)
 						fullThumbnailPath = os.path.join(thumbnailDirectory,hashedPath)
 						
 						
 						#Fallback file type thumbnail
 						if not os.path.isfile(fullThumbnailPath):# and preferences.useFallBack == True TODO
-							fullThumbnailPath = os.path.join(addonThumbnailDir,f"thumbnail_filetype_{assetType.lower()}.png")
+							fullThumbnailPath = os.path.join(addonThumbnailDir,f"thumbnail_filetype_{assetType.lower()}{IMAGE_FORMAT}")
 							
 							
 						if os.path.isfile(fullThumbnailPath):
@@ -449,7 +456,10 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 					json.dump(CRCInfoDict,outputFile,indent=4, sort_keys=False,
 				                      separators=(',', ': '))
 				print(f"Saved {CRCInfoPath}")
-				bpy.ops.wm.console_toggle()
+				try:
+					bpy.ops.wm.console_toggle()
+				except:
+					pass
 			else:
 				self.report({"INFO"},"RE Asset thumbnails have not been rendered. Cannot retrieve.")
 				return {'CANCELLED'}
@@ -1035,7 +1045,7 @@ class WM_OT_ExportCatalogDiff(Operator):
 				user = "NSACloud",
 				repo = "RE-Asset-Library-Collection",
 				gameName = gameName,
-				desc = f"{changeCount} assets entries changed.\n\n(Don't forget to attach the generated diff zip file by dragging it into this box)",
+				desc = f"{changeCount} asset entries changed.\n\n(Don't forget to attach the generated diff zip file by dragging it into this box)",
 				)
 				bpy.ops.wm.url_open(url = githubURL)
 				self.report({"INFO"},"Generated Diff file.")
@@ -1161,6 +1171,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 		
 		
 		directoryDict = downloadREAssetLibDirectory()
+		
 		libDirectoryEntry = None
 		if directoryDict != None:
 			#print(directoryDict)

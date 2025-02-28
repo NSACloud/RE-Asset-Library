@@ -18,6 +18,11 @@ EXPOSURE = 0.5
 CAMERA_DISTANCE = 1.7#Relative to object bbox size
 CAMERA_ROT = (55.0,0.0,45.0)
 
+
+IMAGE_FORMAT = "JPEG2000"
+#IMAGE_FORMAT = "PNG"
+RENDER_BOTH_FORMATS = False
+IMAGE_QUALITY_COMPRESSION = 93#This is about the limit to where hair starts looking crunchy
 #-------
 
 #Convert to radians
@@ -68,7 +73,8 @@ def setupScene(hdriPath):
     bpy.context.scene.render.resolution_x = IMAGE_RES
     bpy.context.scene.render.resolution_y = IMAGE_RES
     bpy.context.scene.render.resolution_percentage = 100
-    
+    bpy.context.scene.render.image_settings.file_format = IMAGE_FORMAT
+    bpy.context.scene.render.image_settings.quality = IMAGE_QUALITY_COMPRESSION
     #World
     if bpy.context.scene.world != None:
         world = bpy.context.scene.world
@@ -238,11 +244,20 @@ def renderMeshThumbnail(meshPath,outPath,hdriPath):#Use category to determine if
        
         bpy.context.scene.render.filepath = outPath
         bpy.ops.render.render(write_still = True)
+		
+        if RENDER_BOTH_FORMATS:
+            bpy.context.scene.render.image_settings.file_format = "PNG"
+            bpy.context.scene.render.filepath = outPath.replace(".jp2",".png")
+            bpy.ops.render.render(write_still = True)
 
 #--------------
 print("\nRender Asset Script Started")
 RE_MESH_EDITOR_PREFERENCES_NAME = None
-bpy.ops.wm.console_toggle()
+try:
+	bpy.ops.wm.console_toggle()
+except:
+	pass
+
 if os.path.isfile(RENDER_JOB_PATH):
 
     file = open(RENDER_JOB_PATH,"r", encoding ="utf-8")
@@ -281,11 +296,17 @@ if os.path.isfile(RENDER_JOB_PATH):
         print("Reset RE Mesh Editor console show setting")
     print()
     print("Render Job Finished")
-    bpy.ops.wm.console_toggle()
+    try:
+        bpy.ops.wm.console_toggle()
+    except:
+        pass
     exit(222)
 	
     
 else:
     print("RenderJob.json is missing, cannot render.")
 time.sleep(5)
-bpy.ops.wm.console_toggle()
+try:
+	bpy.ops.wm.console_toggle()
+except:
+	pass

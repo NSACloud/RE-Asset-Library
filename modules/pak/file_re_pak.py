@@ -165,7 +165,10 @@ class PakFile():
 		
 
 def ReadPakTOC(pakPath):
-	with open(pakPath,"rb") as file:
-		pakFile = PakFile()
-		pakFile.readTOC(file)
-		return pakFile.toc.entryList
+	if os.path.getsize(pakPath) != 0:#Check for empty paks Capcom puts in when updating to rt versions
+		with open(pakPath,"rb") as file:
+			pakFile = PakFile()
+			pakFile.readTOC(file)
+			return pakFile.toc.entryList
+	else:
+		return []
