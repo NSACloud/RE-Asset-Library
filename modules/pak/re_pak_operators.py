@@ -326,7 +326,11 @@ class WM_OT_ExtractGameFiles(Operator):
 		#currentY = event.mouse_region_Y
 		
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
-		gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = "UNKN"
+		print(f"Game Name:{gameName}")
 		self.gameName = gameName
 		extractInfoPath = os.path.join(blendDir,f"ExtractInfo_{gameName}.json")
 		if os.path.isfile(extractInfoPath):
@@ -446,7 +450,11 @@ class WM_OT_OpenExtractFolder(Operator):
 	def execute(self, context):
 		
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
-		gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = "UNKN"
+		print(f"Game Name:{gameName}")
 		extractInfoPath = os.path.join(blendDir,f"ExtractInfo_{gameName}.json")
 		if os.path.isfile(extractInfoPath):
 			try:
@@ -474,7 +482,11 @@ class WM_OT_ReloadPakCache(Operator):
 
 	def execute(self, context):
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
-		gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = "UNKN"
+		print(f"Game Name:{gameName}")
 		extractInfoPath = os.path.join(blendDir,f"ExtractInfo_{gameName}.json")
 		if os.path.isfile(extractInfoPath):
 			try:

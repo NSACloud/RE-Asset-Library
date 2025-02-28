@@ -34,6 +34,10 @@ def getChunkPathList(gameName):
 
 def addChunkPath(chunkPath,gameName):
 	meshEditorPreferencesName = findREMeshEditorAddon()
+	
+	if meshEditorPreferencesName == None:
+		raise Exception("RE Mesh Editor is not installed. It is required for RE Asset Library to function. Install it.")
+		
 	ADDON_PREFERENCES = bpy.context.preferences.addons[meshEditorPreferencesName].preferences
 	foundExisting = False
 	for item in ADDON_PREFERENCES.chunkPathList_items:

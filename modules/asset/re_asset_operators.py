@@ -315,7 +315,11 @@ class WM_OT_RenderREAssets(Operator):
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
 		rendererBlendPath = os.path.join(addonDir,"Resources","Blend","assetRenderer.blend")#This may seem pointless, it's a blank blend file. However, if blender's default startup is used, it'll cause textures to show up pink in the render for whatever reason.
 		scriptPath = os.path.join(addonDir,"Resources","Scripts","renderAssets.py")
-		gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = "UNKN"
+		print(f"Game Name:{gameName}")
 		renderJobPath = os.path.join(blendDir,f"RenderJob_{gameName}.json")
 		gameInfoPath = os.path.join(blendDir,f"GameInfo_{gameName}.json")
 		
@@ -404,7 +408,11 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 	   default = False)
 	def execute(self, context):
 		if bpy.context.scene.get("isREAssetLibrary"):
-			gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
+			try:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			except:
+				gameName = "UNKN"
+			print(f"Game Name:{gameName}")
 			print("\nFetching RE Asset Thumbnails...")
 			addonThumbnailDir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),"Resources","Icons")
 			blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
@@ -718,7 +726,11 @@ class WM_OT_ImportREAssetLibraryFromCatalog(Operator):
 			
 			
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
-		gameName = bpy.context.scene.get("REAssetLibrary_Game")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = "UNKN"
+		print(f"Game Name:{gameName}")
 		
 		if gameName != None:
 			catalogPath = os.path.join(blendDir,f"REAssetCatalog_{gameName}.tsv")
@@ -828,7 +840,11 @@ class WM_OT_SaveREAssetLibraryToCatalog(Operator):
 			
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
 		blender_assets_cats_path = os.path.join(blendDir, "blender_assets.cats.txt")
-		gameName = bpy.context.scene.get("REAssetLibrary_Game")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = None
+		print(f"Game Name:{gameName}")
 		
 		
 		if gameName != None:
@@ -973,7 +989,11 @@ class WM_OT_ExportCatalogDiff(Operator):
 	def execute(self, context):
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
 		blender_assets_cats_path = os.path.join(blendDir, "blender_assets.cats.txt")
-		gameName = bpy.context.scene.get("REAssetLibrary_Game")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = None
+		print(f"Game Name:{gameName}")
 		timestamp = str(datetime.now(UTC)).split(".")[0].replace(" ","_").replace(":","").replace("-","")
 		
 		if gameName != None:
@@ -1086,7 +1106,11 @@ class WM_OT_PackageREAssetLibrary(Operator):
 	def execute(self, context):
 		if bpy.context.scene.get("isREAssetLibrary"):
 			blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
-			gameName = bpy.context.scene.get("REAssetLibrary_Game","")
+			try:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			except:
+				gameName = None
+			print(f"Game Name:{gameName}")
 			if zipLibrary(blendDir, gameName):
 				os.startfile(blendDir)
 				self.report({"INFO"},"Packaged RE Asset library.")
@@ -1124,7 +1148,11 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 	def execute(self, context):
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
 		assetLibDir = os.path.dirname(os.path.dirname(blendDir))
-		gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = "UNKN"
+		print(f"Game Name:{gameName}")
 		outFilePath = os.path.join(assetLibDir,f"{gameName}.reassetlib")
 		
 		print(assetLibDir)
@@ -1165,7 +1193,11 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 	
 	def invoke(self, context, event):
 		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
-		gameName = bpy.context.scene.get("REAssetLibrary_Game","UNKN")
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+		except:
+			gameName = "UNKN"
+		print(f"Game Name:{gameName}")
 		packageInfoPath = os.path.join(blendDir,f"packageInfo_{gameName}.json")
 		
 		

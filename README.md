@@ -203,6 +203,10 @@ If the file is present on the system, it will be imported by an addon associated
 
 ## Change Log
 
+### V0.8 - 2/28/2025
+* Added error message to tell that RE Mesh Editor is not installed.
+* Minor bug fixes.
+
 ### V0.7 - 2/28/2025
 * Fixed issue where reading paks would fail on MH Wilds if the HD texture pack is installed.
 
