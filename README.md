@@ -203,6 +203,17 @@ If the file is present on the system, it will be imported by an addon associated
 
 ## Change Log
 
+### V0.9 - 2/28/2025
+* Added support for extracting HD textures from the MH Wilds HD texture pack.
+
+Note that if you have already extracted files, in order to be able to extract HD textures, you have to do the following things:
+
+In the asset library blend file (REAssetLibrary_MHWILDS.blend), click the "Reload Pak Cache" button.
+
+If there's already a model you've extracted before and you want the higher quality textures, use the Configure RE Asset settings button in the asset browser and enable "Force Extract Files".
+
+Additionally, check the "Reload Cached Textures" box when importing the mesh file.
+
 ### V0.8 - 2/28/2025
 * Added error message to tell that RE Mesh Editor is not installed.
 * Minor bug fixes.
