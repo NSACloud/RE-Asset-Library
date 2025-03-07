@@ -53,8 +53,17 @@ class PakTOCEntry():
 		self.encryptionType = 0
 		
 		
-	def write(self,file):
-		pass#TODO
+	def write(self,file):#Only writes pak version 4 for pak patches
+		file.write(ver4EntryStruct.pack(
+		self.hashNameLower,
+		self.hashNameUpper,
+		self.offset,
+		self.compressedSize,
+		self.decompressedSize,
+		self.attributes,
+		self.checksum,
+		)
+		)
 
 class PakTOC():
 	def __init__(self):
@@ -118,7 +127,8 @@ class PakTOC():
 					raise Exception("Invalidated pak entries found.\nPak files cannot be extracted when mods are installed using Fluffy Manager.\nUninstall any mods and verify integrity of game files on Steam.")
 		
 	def write(self,file):
-		pass#TODO
+		for entry in self.entryList:
+			entry.write(file)
 
 class PakHeader():
 	def __init__(self):
@@ -151,6 +161,7 @@ class PakHeader():
 		write_ubyte(file,self.majorVersion)
 		write_ubyte(file,self.minorVersion)
 		write_ushort(file,self.feature)
+		write_uint(file,self.entryCount)
 		write_uint(file,self.fingerprint)
 		
 
@@ -166,8 +177,14 @@ class PakFile():
 	def readTOC(self,file):
 		self.header.read(file)
 		self.toc.read(file,self.header)
-		
-
+	
+	def write(self,file):#Only for creating patch paks when called by pak utils atm
+		self.header.write(file)
+		self.toc.write(file)
+		for entry in self.toc.entryList:
+			file.seek(entry.offset)
+			file.write(entry.fileData)
+	
 def ReadPakTOC(pakPath):
 	try:
 		if os.path.getsize(pakPath) != 0:#Check for empty paks Capcom puts in when updating to rt versions
@@ -180,3 +197,12 @@ def ReadPakTOC(pakPath):
 	except Exception as err:
 		print(f"Could not read {pakPath}, skipping. {str(err)}")
 		return []
+
+def writePak(pakFile,filepath):
+	try:
+		file = open(filepath,"wb")
+	except:
+		raise Exception("Failed to open " + filepath)
+
+	pakFile.write(file)
+	file.close()

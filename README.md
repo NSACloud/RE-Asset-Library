@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.6 (2/28/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.10 (3/7/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 
 **BETA RELEASE, THERE MAY BE BUGS**
 
@@ -202,6 +202,15 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+V0.10 - 3/7/2025
+* Added patch pak creation tools. These are required (for now at least) for textures to work for MH Wilds.
+
+You can create a patch pak by using the "Create Patch Pak" button in the RE MDF tab in the 3D view.
+
+They can be installed using Fluffy Manager.
+
+Be sure to update to the latest version of RE Mesh Editor or the button won't show up.
 
 ### V0.9 - 2/28/2025
 * Added support for extracting HD textures from the MH Wilds HD texture pack.

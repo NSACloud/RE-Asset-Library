@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 9),
+	"version": (0, 10),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -33,6 +33,7 @@ from .modules.pak.re_pak_operators import (
 	WM_OT_ExtractGameFiles,
 	WM_OT_OpenExtractFolder,
 	WM_OT_ReloadPakCache,
+	WM_OT_CreatePakPatch,
 	
 )
 from .modules.pak.re_pak_utils import (
@@ -728,6 +729,7 @@ classes = [
 	WM_OT_ExtractGameFiles,
 	WM_OT_OpenExtractFolder,
 	WM_OT_ReloadPakCache,
+	WM_OT_CreatePakPatch,
 	
 	WM_OT_InitializeREAssetLibrary,
 	WM_OT_DownloadREAssetLibrary,

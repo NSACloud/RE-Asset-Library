@@ -8,7 +8,7 @@ from bpy.types import Operator
 from ..blender_utils import showMessageBox
 from ..asset.re_asset_utils import getFileCRC,loadREAssetCatalogFile,buildNativesPathFromCatalogEntry
 from ..asset.blender_re_asset import addChunkPath
-from .re_pak_utils import loadGameInfo,scanForPakFiles,createPakCacheFile,extractPakMP,STREAMING_FILE_TYPE_SET
+from .re_pak_utils import loadGameInfo,scanForPakFiles,createPakCacheFile,extractPakMP,STREAMING_FILE_TYPE_SET,createPakPatch
 from .re_pak_propertyGroups import ToggleStringPropertyGroup
 
 
@@ -511,3 +511,76 @@ class WM_OT_ReloadPakCache(Operator):
 		else:
 			self.report({"ERROR"},"Game file extraction is not set up.")
 		return {'FINISHED'}
+def update_pakDir(self, context):
+	if os.path.isdir(bpy.path.abspath(self.pakDir)):
+		try:
+			self.outPath = os.path.join(os.path.dirname(bpy.path.abspath(self.pakDir)),os.path.basename(os.path.normpath(bpy.path.abspath(self.pakDir)))+".pak")
+		except:
+			pass
+class WM_OT_CreatePakPatch(Operator):
+	bl_label = "Create Pak Patch"
+	bl_idname = "re_asset.create_pak_patch"
+	bl_description = "Create a pak patch from a selected directory. The natives folder must be inside the selected directory.\nRequired for textures to work in MH Wilds. (May change in the future)\nInstall using Fluffy Manager."
+	bl_options = {'REGISTER'}
+	
+	
+	pakDir : bpy.props.StringProperty(
+	   name = "Mod Directory",
+	   description = "Set the folder containing the natives folder for your mod",
+	   subtype = "DIR_PATH",
+	   update = update_pakDir)
+	
+	outPath : bpy.props.StringProperty(
+	   name = "Pak Output Path",
+	   description = "Set the path where you want the patch pak to saved",
+	   subtype = "FILE_PATH",
+   )
+	def execute(self, context):
+		
+		pakDir = bpy.path.abspath(self.pakDir)
+		
+		outPath = bpy.path.abspath(self.outPath)
+		
+		if os.path.isdir(pakDir) and outPath.endswith(".pak"):
+			try:
+				createPakPatch(pakDir,outPath)
+			except:
+				self.report({"ERROR"},"Failed to create patch pak. See Window > Toggle System Console")
+			if os.path.isfile(outPath):
+				try:
+					os.startfile(os.path.split(outPath)[0])
+				except:
+					pass
+				bpy.context.scene["lastExportedPatchPak"] = outPath
+				self.report({"INFO"},"Created pak patch.")
+			else:
+				self.report({"ERROR"},"Failed to create patch pak. See Window > Toggle System Console")
+		else:
+			self.report({"ERROR"},"Mod directory or output pak path is invalid.")
+			
+		return {'FINISHED'}
+	@classmethod
+	def poll(self,context):
+		return bpy.context.scene is not None
+	def invoke(self,context,event):
+		if self.outPath == "":
+			if "lastExportedPatchPak" in bpy.context.scene:
+				self.outPath = bpy.context.scene["lastExportedPatchPak"]
+			else:
+				if hasattr(bpy.types, "OBJECT_PT_mdf_tools_panel"):
+					print(f"Found mod directory:{bpy.context.scene.re_mdf_toolpanel.modDirectory}")
+					try:
+						if "natives" in bpy.context.scene.re_mdf_toolpanel.modDirectory:
+							self.pakDir = os.path.dirname(os.path.dirname(os.path.dirname(bpy.path.abspath(bpy.context.scene.re_mdf_toolpanel.modDirectory))))
+							print(f"Set pak dir:{self.pakDir}")
+					except:
+						pass
+		region = bpy.context.region
+		centerX = region.width // 2
+		centerY = region.height
+		context.window.cursor_warp(centerX,centerY)
+		return context.window_manager.invoke_props_dialog(self,width = 650)
+	def draw(self,context):
+		layout = self.layout
+		layout.prop(self,"pakDir")
+		layout.prop(self,"outPath")

@@ -14,7 +14,7 @@ timeFormat = "%d"
 
 from ..gen_functions import progressBar,formatByteSize,read_ubyte,read_ushort,read_uint,read_uint64,write_ubyte,write_ushort,write_uint,write_uint64
 
-from .file_re_pak import ReadPakTOC
+from .file_re_pak import ReadPakTOC,PakFile,PakTOCEntry,writePak
 from ..hashing.mmh3.pymmh3 import hashUTF16#TODO Replace with pypi mmh3 library, orders of magnitude faster
 from ..encryption.re_pak_encryption import decryptResource
 from ..asset.re_asset_utils import loadGameInfo,getFileCRC,buildNativesPathFromObj
@@ -757,4 +757,47 @@ def extractPakMP(filePathList,pakPathList,outDir,maxThreads = cpu_count()-1,skip
 		print("\nCancelled extraction because there were no files to be extracted.")
 				
 	
+	
+def createPakPatch(pakDir,outPath):
+	hasNatives = False
+	for entry in os.scandir(pakDir):
+		if entry.is_dir():
+			if entry.name == "natives":
+				hasNatives = True
+	if hasNatives:
+		pakFile = PakFile()
+		#compressorZSTD = zstd.ZstdCompressor()
+		for root, dirs, files in os.walk(pakDir):
+			for file in files:
+				fullPath = os.path.join(root,file)
+				assetPath = os.path.relpath(fullPath,start=pakDir).replace(os.path.sep,"/")
+				pakEntry = PakTOCEntry()
+				pakEntry.hashNameLower = hashUTF16(assetPath.lower())
+				pakEntry.hashNameUpper = hashUTF16(assetPath.upper())
+				
+				with open(os.path.join(root,file),"rb") as file:
+					pakEntry.fileData = file.read()
+				
+				pakEntry.decompressedSize = len(pakEntry.fileData)
+				
+				#pakEntry.fileData = compressorZSTD.compress(pakEntry.fileData)
+				#pakEntry.compressionType = CompressionTypes.COMPRESSION_TYPE_ZSTD
+				#TODO set pakEntry.attributes and test compression
+				pakEntry.compressedSize = len(pakEntry.fileData)	
+				print(f"{assetPath} - {pakEntry.hashNameLower} - {pakEntry.hashNameUpper}")
+				pakFile.toc.entryList.append(pakEntry)
+				
+		#Set pak header
+		pakFile.header.majorVersion = 4
+		pakFile.header.minorVersion = 0
+		pakFile.header.entryCount = len(pakFile.toc.entryList)
 		
+		#Calculate offsets
+		currentOffset = 16 + (48 * len(pakFile.toc.entryList))
+		for entry in pakFile.toc.entryList:
+			entry.offset = currentOffset
+			currentOffset += entry.compressedSize
+		writePak(pakFile,outPath)
+		print(f"Wrote {outPath}")
+	else:
+		print("ERROR: No natives folder in the provided directory. Nothing to pack.")
