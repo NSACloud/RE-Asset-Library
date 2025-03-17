@@ -759,33 +759,43 @@ def extractPakMP(filePathList,pakPathList,outDir,maxThreads = cpu_count()-1,skip
 	
 	
 def createPakPatch(pakDir,outPath):
+	fileTypeBlackList = set([".exe",".dll",".pak",".blend",".blend1"])
 	hasNatives = False
 	for entry in os.scandir(pakDir):
 		if entry.is_dir():
 			if entry.name == "natives":
 				hasNatives = True
 	if hasNatives:
+		print("\nCreating patch pak.")
+		print(f"Source Directory: {pakDir}")
+		print(f"Output Path: {outPath}")
+		print("\nTo cancel, press CTRL + C.\n")
 		pakFile = PakFile()
 		#compressorZSTD = zstd.ZstdCompressor()
 		for root, dirs, files in os.walk(pakDir):
 			for file in files:
-				fullPath = os.path.join(root,file)
-				assetPath = os.path.relpath(fullPath,start=pakDir).replace(os.path.sep,"/")
-				pakEntry = PakTOCEntry()
-				pakEntry.hashNameLower = hashUTF16(assetPath.lower())
-				pakEntry.hashNameUpper = hashUTF16(assetPath.upper())
-				
-				with open(os.path.join(root,file),"rb") as file:
-					pakEntry.fileData = file.read()
-				
-				pakEntry.decompressedSize = len(pakEntry.fileData)
-				
-				#pakEntry.fileData = compressorZSTD.compress(pakEntry.fileData)
-				#pakEntry.compressionType = CompressionTypes.COMPRESSION_TYPE_ZSTD
-				#TODO set pakEntry.attributes and test compression
-				pakEntry.compressedSize = len(pakEntry.fileData)	
-				print(f"{assetPath} - {pakEntry.hashNameLower} - {pakEntry.hashNameUpper}")
-				pakFile.toc.entryList.append(pakEntry)
+				try:
+					extension = os.path.splitext(file)[1]
+				except:
+					extension = None
+				if extension != None and extension.lower() not in fileTypeBlackList:
+					fullPath = os.path.join(root,file)
+					assetPath = os.path.relpath(fullPath,start=pakDir).replace(os.path.sep,"/")
+					pakEntry = PakTOCEntry()
+					pakEntry.hashNameLower = hashUTF16(assetPath.lower())
+					pakEntry.hashNameUpper = hashUTF16(assetPath.upper())
+					
+					with open(os.path.join(root,file),"rb") as file:
+						pakEntry.fileData = file.read()
+					
+					pakEntry.decompressedSize = len(pakEntry.fileData)
+					
+					#pakEntry.fileData = compressorZSTD.compress(pakEntry.fileData)
+					#pakEntry.compressionType = CompressionTypes.COMPRESSION_TYPE_ZSTD
+					#TODO set pakEntry.attributes and test compression
+					pakEntry.compressedSize = len(pakEntry.fileData)	
+					print(f"{assetPath} - {pakEntry.hashNameLower} - {pakEntry.hashNameUpper}")
+					pakFile.toc.entryList.append(pakEntry)
 				
 		#Set pak header
 		pakFile.header.majorVersion = 4

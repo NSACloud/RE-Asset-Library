@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 10),
+	"version": (0, 11),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -649,9 +649,9 @@ def REAssetPostHandler(lapp_context):
 				print(f"RE Asset Library - Missing GameInfo:{gameInfoPath}")
 			assetType = item.id.get("assetType","UNKN")
 			bpy.context.scene["lastREAsset"] = item.id.name
+			promptSetExtractInfo = False
 			if gameInfo != None:
 				
-				promptSetExtractInfo = False
 				#Find asset path
 				chunkPathList = getChunkPathList(item.id.get("~GAME"))
 				#if len(chunkPathList) == 0:

@@ -203,7 +203,12 @@ If the file is present on the system, it will be imported by an addon associated
 
 ## Change Log
 
-V0.10 - 3/7/2025
+### V0.11 - 3/17/2025
+* Fixed path related issues that would cause assets not to import on certain systems.
+* Excluded unrelated file types from being packed into pak files.
+* The console will now be shown while creating a patch pak.
+
+### V0.10 - 3/7/2025
 * Added patch pak creation tools. These are required (for now at least) for textures to work for MH Wilds.
 
 You can create a patch pak by using the "Create Patch Pak" button in the RE MDF tab in the 3D view.

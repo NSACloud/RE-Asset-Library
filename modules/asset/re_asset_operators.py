@@ -415,7 +415,7 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 			print(f"Game Name:{gameName}")
 			print("\nFetching RE Asset Thumbnails...")
 			addonThumbnailDir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),"Resources","Icons")
-			blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+			blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 			thumbnailDirectory = os.path.join(blendDir,f"REAssetLibrary_{gameName}_thumbnails")
 			#currentThumbnailIndex = 0
 			assetCollection = bpy.data.collections.get("RE Assets")
@@ -668,7 +668,7 @@ class WM_OT_InitializeREAssetLibrary(Operator):
 	bl_options = {'INTERNAL'}
 	def execute(self, context):
 		print("Initializing RE Engine Asset Library...")
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		gameName = None
 		gameInfoPath = wildCardFileSearch(os.path.join(blendDir,"GameInfo_*"))
 		if gameInfoPath == None:
@@ -725,7 +725,7 @@ class WM_OT_ImportREAssetLibraryFromCatalog(Operator):
 		
 			
 			
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 		except:
@@ -838,7 +838,7 @@ class WM_OT_SaveREAssetLibraryToCatalog(Operator):
 		
 			
 			
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		blender_assets_cats_path = os.path.join(blendDir, "blender_assets.cats.txt")
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
@@ -987,7 +987,7 @@ class WM_OT_ExportCatalogDiff(Operator):
 	bl_description = "Exports changes made to library compared to it's original state. Opens an issue submission page on GitHub."
 	bl_options = {'INTERNAL'}
 	def execute(self, context):
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		blender_assets_cats_path = os.path.join(blendDir, "blender_assets.cats.txt")
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
@@ -1105,7 +1105,7 @@ class WM_OT_PackageREAssetLibrary(Operator):
 	bl_options = {'INTERNAL'}
 	def execute(self, context):
 		if bpy.context.scene.get("isREAssetLibrary"):
-			blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+			blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 			try:
 				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 			except:
@@ -1146,7 +1146,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 	updateIsAvailable: bpy.props.BoolProperty(default = False, options = {"HIDDEN"})
 	
 	def execute(self, context):
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		assetLibDir = os.path.dirname(os.path.dirname(blendDir))
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
@@ -1192,7 +1192,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 		return bpy.context.scene is not None
 	
 	def invoke(self, context, event):
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 		except:

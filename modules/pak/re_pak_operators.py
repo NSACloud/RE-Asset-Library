@@ -51,7 +51,7 @@ def update_exePath(self, context):
 	
 	if self.exePath.endswith(".exe"):
 		try:
-			self.extractPath = os.path.split(self.exePath)[0]
+			self.extractPath = os.path.split(bpy.path.abspath(self.exePath))[0]
 		except:
 			pass
 class WM_OT_SetExtractInfo(Operator):
@@ -325,7 +325,7 @@ class WM_OT_ExtractGameFiles(Operator):
 		#currentX = event.mouse_region_X
 		#currentY = event.mouse_region_Y
 		
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 		except:
@@ -449,7 +449,7 @@ class WM_OT_OpenExtractFolder(Operator):
 
 	def execute(self, context):
 		
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 		except:
@@ -481,7 +481,7 @@ class WM_OT_ReloadPakCache(Operator):
 	bl_idname = "re_asset.reload_pak_cache"
 
 	def execute(self, context):
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
+		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		try:
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 		except:
@@ -514,7 +514,14 @@ class WM_OT_ReloadPakCache(Operator):
 def update_pakDir(self, context):
 	if os.path.isdir(bpy.path.abspath(self.pakDir)):
 		try:
-			self.outPath = os.path.join(os.path.dirname(bpy.path.abspath(self.pakDir)),os.path.basename(os.path.normpath(bpy.path.abspath(self.pakDir)))+".pak")
+			absPakDir = bpy.path.abspath(self.pakDir)
+			outDir = os.path.dirname(os.path.normpath(absPakDir))
+			#print(absPakDir)
+			#print(outDir)
+			if outDir == absPakDir:
+				outDir = os.path.dirname(outDir)
+			#print(f"pakDirName:{os.path.basename(os.path.normpath(absPakDir))}")
+			self.outPath = os.path.join(outDir,os.path.basename(os.path.normpath(absPakDir))+".pak")
 		except:
 			pass
 class WM_OT_CreatePakPatch(Operator):
@@ -543,9 +550,17 @@ class WM_OT_CreatePakPatch(Operator):
 		
 		if os.path.isdir(pakDir) and outPath.endswith(".pak"):
 			try:
+				try: 
+					bpy.ops.wm.console_toggle()
+				except:
+					 pass
 				createPakPatch(pakDir,outPath)
 			except:
 				self.report({"ERROR"},"Failed to create patch pak. See Window > Toggle System Console")
+			try: 
+				bpy.ops.wm.console_toggle()
+			except:
+				 pass
 			if os.path.isfile(outPath):
 				try:
 					os.startfile(os.path.split(outPath)[0])
@@ -566,6 +581,8 @@ class WM_OT_CreatePakPatch(Operator):
 		if self.outPath == "":
 			if "lastExportedPatchPak" in bpy.context.scene:
 				self.outPath = bpy.context.scene["lastExportedPatchPak"]
+				if self.pakDir == "" and "natives" in bpy.context.scene.re_mdf_toolpanel.modDirectory:
+					self.pakDir = os.path.dirname(os.path.dirname(os.path.dirname(bpy.path.abspath(bpy.context.scene.re_mdf_toolpanel.modDirectory))))
 			else:
 				if hasattr(bpy.types, "OBJECT_PT_mdf_tools_panel"):
 					print(f"Found mod directory:{bpy.context.scene.re_mdf_toolpanel.modDirectory}")
