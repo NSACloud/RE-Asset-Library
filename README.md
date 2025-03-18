@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.10 (3/7/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.12 (3/18/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 
 **BETA RELEASE, THERE MAY BE BUGS**
 
@@ -202,6 +202,9 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.12 - 3/18/2025
+* Fixed issue where assets couldn't be imported if the blend file was saved to the same drive that the asset library is saved to.
 
 ### V0.11 - 3/17/2025
 * Fixed path related issues that would cause assets not to import on certain systems.

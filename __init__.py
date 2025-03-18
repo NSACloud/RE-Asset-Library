@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 11),
+	"version": (0, 12),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -641,7 +641,7 @@ def REAssetPostHandler(lapp_context):
 		item = lapp_context.import_items[0]
 		if item.id.get("~TYPE") == "RE_ASSET_LIBRARY_ASSET":
 			addonPreferences = bpy.context.preferences.addons[__name__].preferences
-			gameInfoPath = os.path.join(os.path.split(item.source_library.filepath)[0],"GameInfo_"+item.id.get("~GAME","UNKN")+".json")
+			gameInfoPath = os.path.join(os.path.split(bpy.path.abspath(item.source_library.filepath))[0],"GameInfo_"+item.id.get("~GAME","UNKN")+".json")
 			#print(gameInfoPath)
 			if os.path.isfile(gameInfoPath):
 				gameInfo = loadGameInfo(gameInfoPath)
@@ -654,6 +654,7 @@ def REAssetPostHandler(lapp_context):
 				
 				#Find asset path
 				chunkPathList = getChunkPathList(item.id.get("~GAME"))
+				
 				#if len(chunkPathList) == 0:
 				#	promptSetExtractInfo = True
 					#showErrorMessageBox("No chunk paths found for "+obj["~GAME"]+ " in RE Mesh Editor preferences.")
@@ -669,8 +670,8 @@ def REAssetPostHandler(lapp_context):
 				else:
 					promptSetExtractInfo = True
 				if assetPath == None or addonPreferences.forceExtract:
-					extractInfoPath = os.path.join(os.path.split(item.source_library.filepath)[0],"ExtractInfo_"+item.id.get("~GAME","UNKN")+".json")
-					pakCachePath = os.path.join(os.path.split(item.source_library.filepath)[0],"PakCache_"+item.id.get("~GAME","UNKN")+".pakcache")
+					extractInfoPath = os.path.join(os.path.split(bpy.path.abspath(item.source_library.filepath))[0],"ExtractInfo_"+item.id.get("~GAME","UNKN")+".json")
+					pakCachePath = os.path.join(os.path.split(bpy.path.abspath(item.source_library.filepath))[0],"PakCache_"+item.id.get("~GAME","UNKN")+".pakcache")
 					
 					if not os.path.isfile(extractInfoPath):#File extraction is not set up
 						promptSetExtractInfo = True
@@ -702,7 +703,7 @@ def REAssetPostHandler(lapp_context):
 					
 					
 			if promptSetExtractInfo:
-				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = item.source_library.filepath)
+				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = bpy.path.abspath(item.source_library.filepath))
 			
 			if not bpy.app.timers.is_registered(execute_queued_functions()):
 				bpy.app.timers.register(execute_queued_functions)
