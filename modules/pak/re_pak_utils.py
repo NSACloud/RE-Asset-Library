@@ -63,19 +63,30 @@ def readListFileSet(listPath):
 					
 	return outPathSet
 
+def isModPak(pakPath):
+	result = False
+	if os.path.isfile(pakPath):
+		with open(pakPath,"rb") as file:
+			pakFile = PakFile()
+			pakFile.header.read(file)
+			result = pakFile.header.majorVersion == 4 and pakFile.header.minorVersion == 0 and pakFile.header.feature == 0 and pakFile.header.fingerprint == 0 and "sub_000.pak" in pakPath
+	return result
 def scanForPakFiles(gameDir):
-	#Returns list of pak files in load order (Base Chunk > DLC > Patch Files)
+	#Returns list of pak files in load order (Base Chunk > Patch Files > DLC)
 	lowPriorityList = []
 	midPriorityList = []
 	highPriorityList = []
+	
 	
 	for entry in os.scandir(gameDir):
 		if entry.is_file() and entry.name.endswith(".pak"):
 			fullPath = os.path.join(gameDir,entry.name)
 			if "patch_" in entry.name:
-				highPriorityList.append(fullPath)
+				if not isModPak(fullPath):
+					midPriorityList.append(fullPath)
 			else:
-				lowPriorityList.append(fullPath)
+				if not isModPak(fullPath):
+					lowPriorityList.append(fullPath)
 		elif entry.is_dir():
 			#Scan first level of subdirectories for dlc paks
 			dirPath = os.path.join(gameDir,entry)
@@ -83,7 +94,8 @@ def scanForPakFiles(gameDir):
 				if subentry.is_file() and subentry.name.endswith(".pak"):
 					fullPath = os.path.join(dirPath,subentry.name)
 					if "re_dlc" in subentry.name:
-						midPriorityList.append(fullPath)
+						if not isModPak(fullPath):
+							highPriorityList.append(fullPath)
 						
 	pakPriorityList = []
 
@@ -559,6 +571,8 @@ def debugDataIterator(pakPathList):
 		extractTime =  extractEndTime - extractStartTime
 		print(f"Extracted {extractCount} files.")
 		print(f"Extracting all files took {timeFormat%(extractTime)} s.")		
+
+
 					
 #Unused	
 def extractAll(filePathList,pakPath,outDir):

@@ -13,6 +13,7 @@ from zlib import crc32
 import re
 from io import StringIO
 import requests
+import glob
 
 from bpy.types import Operator
 from ..gen_functions import splitNativesPath,wildCardFileSearch,progressBar,formatByteSize
@@ -626,16 +627,34 @@ def createEmpty(name,propertyList,parent = None,collection = None):
 def find_asset_browser():
     for each_window in bpy.context.window_manager.windows:
         each_screen = each_window.screen
-        if each_screen.name.lower() == "layout":
-            for each_area in each_screen.areas:
-                if each_area.type == "FILE_BROWSER":
-                    for each_space in each_area.spaces:
-                        if each_space.type == "FILE_BROWSER":
-                            if each_space.browse_mode == "ASSETS":
-                                return each_window, each_screen, each_area, each_space
+        #if each_screen.name.lower() == "layout":
+        for each_area in each_screen.areas:
+            if each_area.type == "FILE_BROWSER":
+                for each_space in each_area.spaces:
+                    if each_space.type == "FILE_BROWSER":
+                        if each_space.browse_mode == "ASSETS":
+                            return each_window, each_screen, each_area, each_space
     return None, None, None, None
 
+def getGameNameFromAssetBrowser():
+	gameName = None
+	_, _, _, asset_browser_space = find_asset_browser()
+	if asset_browser_space != None and "RE Assets - " in asset_browser_space.params.asset_library_reference:
+		gameName = asset_browser_space.params.asset_library_reference.split("RE Assets - ")[1]
+	return gameName
 
+def getAssetBlendPathFromAssetBrowser():
+	gameName = getGameNameFromAssetBrowser()
+	libName = f"RE Assets - {gameName}" 
+	blendPath = None
+	if gameName != None:
+		for lib in bpy.context.preferences.filepaths.asset_libraries:
+			if lib.name == libName:
+				#Verify that the required re asset files exist before returning anything
+				if os.path.isfile(os.path.join(bpy.path.abspath(lib.path),f"GameInfo_{gameName}.json")) and os.path.isfile(os.path.join(bpy.path.abspath(lib.path),f"REAssetLibrary_{gameName}.blend")):
+					blendPath = os.path.join(bpy.path.abspath(lib.path),f"REAssetLibrary_{gameName}.blend")
+				break
+	return blendPath
 def getAssetLibrary(name):
 	libraryExists = False
 	
@@ -662,7 +681,7 @@ def loadGameInfo(gameInfoPath):
 		raise Exception("GameInfo version is newer than the currently installed version.\nUpdate the RE-Asset-Library addon from the addon preferences.")
 	return gameInfo
 class WM_OT_InitializeREAssetLibrary(Operator):
-	bl_label = "Intialize RE Asset Library"
+	bl_label = "Initialize RE Asset Library"
 	bl_idname = "re_asset.initialize_library"
 	bl_description = "Loads all loadable assets from the REAssetCatalog_XXXX.tsv file in the same directory as the blend file.\nTHIS WILL CLEAR ALL ASSETS FROM THE CURRENT LIBRARY"
 	bl_options = {'INTERNAL'}
@@ -670,7 +689,7 @@ class WM_OT_InitializeREAssetLibrary(Operator):
 		print("Initializing RE Engine Asset Library...")
 		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
 		gameName = None
-		gameInfoPath = wildCardFileSearch(os.path.join(blendDir,"GameInfo_*"))
+		gameInfoPath = wildCardFileSearch(glob.escape(os.path.join(blendDir,"GameInfo_"))+"*")
 		if gameInfoPath == None:
 			raise Exception("GameInfo json file missing.")
 		else:
@@ -703,7 +722,8 @@ class WM_OT_InitializeREAssetLibrary(Operator):
 			bpy.ops.re_asset.fetch_re_asset_thumbnails()
 			# retrieve the context of the asset browser
 			asset_browser_window, asset_browser_screen, asset_browser_area, asset_browser_space = find_asset_browser()
-			asset_browser_space.params.asset_library_reference = f"RE Assets - {gameName}"
+			if asset_browser_space != None:
+				asset_browser_space.params.asset_library_reference = f"RE Assets - {gameName}"
 			
 			bpy.ops.wm.save_userpref()
 			bpy.ops.wm.save_mainfile()
@@ -1146,12 +1166,21 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 	updateIsAvailable: bpy.props.BoolProperty(default = False, options = {"HIDDEN"})
 	
 	def execute(self, context):
-		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
-		assetLibDir = os.path.dirname(os.path.dirname(blendDir))
-		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-		except:
+		if os.path.split(bpy.context.blend_data.filepath)[1].startswith("REAssetLibrary_"):#Operator run in asset blend file
+			blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
+			try:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			except:
+				gameName = "UNKN"
+		else:#Operator run elsewhere from asset browser
 			gameName = "UNKN"
+			blendPath = getAssetBlendPathFromAssetBrowser()
+			if blendPath != None:
+				gameName = os.path.split(blendPath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+				blendDir = os.path.split(blendPath)[0]
+		
+		assetLibDir = os.path.dirname(os.path.dirname(blendDir))
+		
 		print(f"Game Name:{gameName}")
 		outFilePath = os.path.join(assetLibDir,f"{gameName}.reassetlib")
 		
@@ -1172,17 +1201,19 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 				if libCRC == getFileCRC(outFilePath):
 					print("CRC Check Passed")
 					bpy.ops.re_asset.importlibrary(filepath = outFilePath,currentBlendPath = bpy.path.abspath(bpy.context.blend_data.filepath))
+					#bpy.ops.re_asset.import_catalog()
+					#bpy.ops.re_asset.fetch_re_asset_thumbnails()
+					
+					#bpy.ops.wm.save_mainfile()
+					self.report({"INFO"},"Updated RE Asset Library.")
 					try:
 						os.remove(outFilePath)
 					except:
 						pass
 				else:
 					print("CRC Check failed, aborting install.")
-			bpy.ops.re_asset.import_catalog()
-			bpy.ops.re_asset.fetch_re_asset_thumbnails()
-			
-			bpy.ops.wm.save_mainfile()
-			self.report({"INFO"},"Updated RE Asset Library.")
+					self.report({"INFO"},"Failed to update RE Asset Library, CRC check failed. Try downloading the asset library again.")
+					return {'CANCELLED'}
 		else:
 			self.report({"ERROR"},"Game is not on repository or repository is unreachable.")
 			return {'CANCELLED'}
@@ -1192,12 +1223,19 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 		return bpy.context.scene is not None
 	
 	def invoke(self, context, event):
-		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
-		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-		except:
+		if os.path.split(bpy.context.blend_data.filepath)[1].startswith("REAssetLibrary_"):#Operator run in asset blend file
+			blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
+			try:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			except:
+				gameName = "UNKN"
+		else:#Operator run elsewhere from asset browser
 			gameName = "UNKN"
-		print(f"Game Name:{gameName}")
+			blendPath = getAssetBlendPathFromAssetBrowser()
+			if blendPath != None:
+				gameName = os.path.split(blendPath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+				blendDir = os.path.split(blendPath)[0]
+		print(f"Checking for {gameName} update...")
 		packageInfoPath = os.path.join(blendDir,f"packageInfo_{gameName}.json")
 		
 		
@@ -1218,6 +1256,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 			self.URL = entry["URL"]
 			self.releaseDescription = entry.get("releaseDescription","")
 			self.timestamp = entry["timestamp"]
+			print("Repository Timestamp: "+str(entry["timestamp"]))
 			self.downloadSize = str(entry["compressedSize"])
 		timestamp = "0"
 		if os.path.isfile(packageInfoPath):
@@ -1225,6 +1264,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 				with open(packageInfoPath,"r", encoding ="utf-8") as file:
 					packageInfoDict = json.load(file)
 					timestamp = packageInfoDict["timestamp"]
+					print("Local Timestamp: "+str(timestamp))
 			except:
 				print(f"Failed to load {packageInfoPath}")
 		
@@ -1232,6 +1272,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 			self.updateIsAvailable = True
 			return context.window_manager.invoke_props_dialog(self,width = 400,confirm_text = "Update Asset Library")
 		else:
+			print("No update available.")
 			return context.window_manager.invoke_popup(self)
 	
 	def draw(self,context):

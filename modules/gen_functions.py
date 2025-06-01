@@ -1,5 +1,5 @@
 #Author: NSA Cloud
-#V4
+#V5
 import os
 import struct
 import glob
@@ -201,16 +201,19 @@ def splitNativesPath(filePath):#Splits file path of RE Engine natives/platform f
 	path = Path(filePath)	
 	parts = path.parts
 	try:
-		nativesIndex = parts.index("natives")
-		rootPath = str(Path(*parts[:nativesIndex+2]))#stage\m01\a02\m01a02_iwa.mesh.2109148288
-		nativesPath = str(Path(*parts[nativesIndex+2::]))#F:\MHR_EXTRACT\extract\re_chunk_000\natives\STM
-		return (rootPath,nativesPath)
+		if "natives" in filePath.lower():
+			nativesIndex = next((i for i, part in enumerate(parts) if part.lower() == "natives"), None)
+			rootPath = str(Path(*parts[:nativesIndex+2]))#stage\m01\a02\m01a02_iwa.mesh.2109148288
+			nativesPath = str(Path(*parts[nativesIndex+2::]))#F:\MHR_EXTRACT\extract\re_chunk_000\natives\STM
+			return (rootPath,nativesPath)
+		else:
+			return None
 	except:
 		return None
 	
 def getAdjacentFileVersion(rootPath,fileType):
 	fileVersion = -1
-	search = wildCardFileSearch(os.path.join(rootPath,"*"+fileType+"*"))
+	search = wildCardFileSearch(os.path.join(glob.escape(rootPath),"*"+fileType+"*"))
 	if search != None:
 		versionExtension = os.path.splitext(search)[1][1::]
 		if versionExtension.isdigit():

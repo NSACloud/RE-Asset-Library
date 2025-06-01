@@ -3,7 +3,8 @@ from zlib import crc32
 import os
 import csv
 import json
-
+from ..mdf.file_re_mdf import readMDF
+from ..hashing.mmh3.pymmh3 import hashUTF8
 #TODO move more functions from operators file into here
 
 
@@ -69,3 +70,39 @@ def catalogGetAllFilesInDir(catalogPath,dirPath,gameInfo,platform = "STM"):
 					
 	return filePathSet
 
+def generateMaterialCompendium(libraryDir,gameName):
+	gameInfoPath = os.path.join(libraryDir,f"GameInfo_{gameName}.json")
+	catalogPath = os.path.join(libraryDir,f"REAssetCatalog_{gameName}.tsv")
+	extractInfoPath = os.path.join(libraryDir,f"ExtractInfo_{gameName}.json")
+	compendiumOutPath = os.path.join(libraryDir,f"MaterialCompendium_{gameName}.json")
+	if os.path.isfile(gameInfoPath):
+		gameInfo = loadGameInfo(gameInfoPath)
+		assetEntryList = loadREAssetCatalogFile(catalogPath)
+		extractPath = None
+		with open(extractInfoPath,"r", encoding ="utf-8") as file:
+			extractInfo = json.load(file)
+			extractPath = extractInfo["extractPath"].replace("/",os.sep)
+		mdfFileList = [entry[0]+"."+gameInfo["fileVersionDict"]["MDF2_VERSION"] for entry in assetEntryList if entry[0].endswith(".mdf2")]
+		print(f"Processing {len(mdfFileList)} MDF files")
+		
+		mmtrUsageDict = {}
+		for path in mdfFileList:
+			
+			fullPath = os.path.join(extractPath,"natives","STM",path.replace("/",os.sep))
+			#print(fullPath)
+			if os.path.isfile(fullPath):
+				try:
+					mdfFile = readMDF(fullPath)
+				
+					for material in mdfFile.materialList:
+						mmtrLowerPathHash = hashUTF8(material.mmtrPath.lower())
+						if mmtrLowerPathHash not in mmtrUsageDict:
+							mmtrUsageDict[mmtrLowerPathHash] = {"name":os.path.splitext(os.path.split(material.mmtrPath)[1])[0],"mdfPath":path,"matNameHash":material.matNameHash}
+				except Exception as err:
+					print(f"Failed to read ({fullPath}:{str(err)})")
+		sortedDict = {k: v for k, v in sorted(mmtrUsageDict.items(), key=lambda item: item[1]["name"])}
+		with open(compendiumOutPath,"w", encoding ="utf-8") as outFile:
+			json.dump(sortedDict,outFile,sort_keys=False,indent=4)
+			print(f"Wrote {os.path.split(compendiumOutPath)[1]}")
+		print(f"{len(sortedDict)} shader entries written")	
+		#print(mdfFileList)

@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.12 (3/18/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.13 (6/1/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 
 **BETA RELEASE, THERE MAY BE BUGS**
 
@@ -103,31 +103,7 @@ Once it finishes, you can close the new blend file that opened.
 Now you can access that library via the Asset Browser in any blend file.
 
 > [!TIP]
-> Setting up an Asset Browser workspace and saving it to the startup file can save time with setting up. See below.
-
-<details>
-  <summary>Setting Up An Asset Browser Workspace</summary>
-
-Blender (as of 4.3.2) doesn't include an asset browser workspace. You can create one however.
-
-Start by opening a new blend file. Click the new workspace button (+ sign) on the bar at the top, choose Duplicate Current.
-
-Double click the new tab and rename it to RE Assets (or whatever you want).
-
-![image](https://github.com/user-attachments/assets/bd8d9355-1073-4ae5-a01f-90f1d28df034)
-
-Drag a corner of the viewport to create a new window. Set the type to Asset Browser.
-
-![image](https://github.com/user-attachments/assets/a6d8db2b-c4ac-4c04-b7ea-1bfa445796a5)
-
-Change back to the Layout workspace and click File > Defaults > Save Startup File.
-
-![image](https://github.com/user-attachments/assets/0185b946-eea0-4c94-9497-d02034653f22)
-
-
-Now whenever you open a new blend file, you can click the RE Assets tab at the top to skip having to set up the asset browser.
-
- </details>
+> You can set up an asset workspace quickly by clicking File > New > RE Assets. 
 
 ## Set Chunk Paths
 
@@ -141,6 +117,12 @@ If the path for your game is not set, add a new chunk path for it.
 Choose the game and set the path to the natives\STM\ folder. (See above for reference)
 
 ## FAQ
+
+* **Models appear red when imported.**
+
+> This means you're missing textures. Enable the "Force Extract Files" option in the RE Asset Library menu inside the asset browser.
+> 
+> Drag the asset onto the 3D view again. Any missing files will be extracted automatically.
 
 * **Only an Empty axis object appears when dragging an asset from the asset browser.**
 
@@ -202,6 +184,22 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.13 - 6/1/2025
+* Added RE Assets workspace. It can be accessed using File > New > RE Assets
+* Asset library options are now accessible from the asset browser by opening the RE Asset Library menu.
+
+![image](https://github.com/user-attachments/assets/4db801db-964d-4567-a469-92a481ab03e0)
+
+This allows for extracting of game files and updating asset libraries directly from the asset browser.
+
+* Added Onimusha 2 support.
+* Fixed issue where having certain characters in a file path could cause files to not be found.
+* Set Game Extract Paths will now remember the last chosen path.
+* Set Game Extract Paths will now warn if the extracted files path is too long and may cause issues with path length.
+* Mod pak files are now ignored when extracting files (MH Wilds only).
+* Corrected pak load order to load DLC last.
+* Minor bug fixes.
 
 ### V0.12 - 3/18/2025
 * Fixed issue where assets couldn't be imported if the blend file was saved to the same drive that the asset library is saved to.

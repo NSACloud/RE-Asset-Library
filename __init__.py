@@ -1,11 +1,10 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 12),
+	"version": (0, 13),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
-	"warning": "Requires RE Mesh Editor",
 	"wiki_url": "https://github.com/NSACloud/RE-Asset-Library",
 	"tracker_url": "",
 	"category": "Import-Export"}
@@ -20,12 +19,13 @@ import json
 import queue
 import shutil
 import subprocess
+import glob
 
 from .modules.gen_functions import formatByteSize,resolvePath,wildCardFileSearch
 from .modules.blender_utils import showErrorMessageBox
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, CollectionProperty,PointerProperty
-from bpy.types import Operator,AddonPreferences
+from bpy.types import Operator,Panel,AddonPreferences
 
 from .modules.pak.re_pak_operators import (
 	WM_OT_PromptSetExtractInfo,
@@ -34,6 +34,7 @@ from .modules.pak.re_pak_operators import (
 	WM_OT_OpenExtractFolder,
 	WM_OT_ReloadPakCache,
 	WM_OT_CreatePakPatch,
+	
 	
 )
 from .modules.pak.re_pak_utils import (
@@ -51,6 +52,7 @@ from .modules.asset.blender_re_asset import (
 	importREChain2Asset,
 	)
 from .modules.asset.re_asset_operators import (
+	getGameNameFromAssetBrowser,
 	getAssetLibrary,
 	unzipLibrary,
 	loadGameInfo,
@@ -70,6 +72,7 @@ from .modules.asset.re_asset_operators import (
 	WM_OT_InitializeREAssetLibrary,
 	WM_OT_CheckForREAssetLibraryUpdate,
 	WM_OT_OpenLibraryFolder,
+	
 	
 	REToolListFileToREAssetCatalogAndGameInfo,
 	
@@ -159,7 +162,7 @@ class REAssetPreferences(AddonPreferences):
 	   default = True)
 	forceExtract : BoolProperty(
 	   name = "Force Extract Files",
-	   description = "When dragging an asset from the browser, force files to be extracted from the game files.\nUse this option when there's a game update and you need the latest version of a file.",
+	   description = "When dragging an asset from the browser, force files to be extracted from the game files.\nUse this option when there's a game update and you need the latest version of a file.\nAlso enable this if you're getting missing/red textures when importing models.",
 	   default = False)
 	
 	fileTypeWhiteList_items: bpy.props.CollectionProperty(type=REAssetWhiteListEntryPropertyGroup)
@@ -254,16 +257,19 @@ class ImportREAssetLib(bpy.types.Operator, ImportHelper):
 				sourceBlendPath = os.path.join(addonDir,"Resources","Blend","libraryBase.blend")
 				outputBlendPath = os.path.join(newLibraryDir,f"REAssetLibrary_{gameName}.blend")
 				scriptPath = os.path.join(addonDir,"Resources","Scripts","initializeLibrary.py")
-				
 				if not os.path.isfile(outputBlendPath):
 					shutil.copy(sourceBlendPath,outputBlendPath)
 					
 				if os.path.isfile(outputCatalogPath) and os.path.isfile(outputGameInfoPath) and os.path.isfile(outputBlendPath) and os.path.isfile(scriptPath):
-					
 					if outputBlendPath == self.currentBlendPath:
 						bpy.ops.re_asset.initialize_library()
 					else:
-						subprocess.Popen([bpy.app.binary_path, outputBlendPath, "--python", scriptPath])
+						with subprocess.Popen([bpy.app.binary_path, outputBlendPath, "--python", scriptPath]):
+							pass#Wait for install to finish
+						
+						self.report({"INFO"},f"Installed {gameName} library.")
+						
+						
 				else:
 					self.report({"ERROR"},"Missing files, cannot create library.")
 					return {'CANCELLED'}
@@ -297,6 +303,11 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 			libraryDir = bpy.path.abspath(bpy.context.preferences.addons[__name__].preferences.assetLibraryPath)
 			os.makedirs(libraryDir,exist_ok = True)
 			outFilePath = os.path.join(libraryDir,f"{entry.gameName}.reassetlib")
+			if os.path.isfile(outFilePath):#If the file has been downloaded before, remove it before starting the download again.
+				try:
+					os.remove(outFilePath)
+				except Exception as err:
+					print(f"Failed to delete existing .reassetlib file: {str(err)}")
 			libCRC = int(entry.CRC)
 			"""
 			content = downloadFileContent(entry.URL)
@@ -314,6 +325,11 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 						os.remove(outFilePath)
 					except:
 						pass
+					
+					#Update asset library list
+					bpy.ops.re_asset.detect_re_asset_library()
+					self.report({"INFO"},f"Downloaded {entry.gameName} library.")
+					
 				else:
 					print("CRC Check failed, aborting install.")
 					self.report({"ERROR"},"CRC Check on the downloaded file failed. Try downloading the library again.")
@@ -392,6 +408,7 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 		("DD2", "Dragon's Dogma 2", ""),
 		("KG", "Kunitsu-Gami", ""),
 		("DR", "Dead Rising", ""),
+		("ONI2", "Onimusha 2", ""),
 		("MHWILDS", "Monster Hunter Wilds", ""),
 		]
     )
@@ -497,64 +514,41 @@ class WM_OT_OpenREAssetLibraryFolder(Operator):
 			pass
 		return {'FINISHED'}
 
-class WM_OT_SetREAssetSettings(Operator):
-	bl_label = "Configure RE Asset Settings"
-	bl_description = "Configure settings for imported RE Asset Library assets"
-	bl_idname = "re_asset_library.set_re_asset_settings"
-	bl_context = "objectmode"
-	bl_options = {'INTERNAL'}
+
+class ASSETBROWSER_PT_REAssetToolPanel(Panel):
+	bl_label = "RE Asset Library"
+	bl_idname = "ASSETBROWSER_PT_REAssetToolPanel"
+	bl_options = {"INSTANCED"}
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "WINDOW"
 	
-	showMeshImportOptions : BoolProperty(
-	   name = "Show Mesh Import Options",
-	   description = "When dragging an RE Asset onto the 3D View, prompt with import options",
-	   default = True)
-	placeAtCursor : BoolProperty(
-	   name = "Place At Cursor",
-	   description = "When dragging an RE Asset, it will be imported at the location that it was dragged to.\nIf this is disabled, it will be imported at the world origin.\nNote that if you are creating mesh mods, do not check this option. Having objects not imported at the world origin may cause issues when exporting",
-	   default = False)
-	
-	instanceDuplicates : BoolProperty(
-	   name = "Instance Duplicates",
-	   description = "If a mesh is imported more than once, create an instance of previously imported mesh.\nNOTE: The Create Collections import option must be enabled",
-	   default = True)
-	
-	forceExtract : BoolProperty(
-	   name = "Force Extract Files",
-	   description = "When dragging an asset from the browser, force files to be extracted from the game files.\nUse this option when there's a game update and you need the latest version of a file.",
-	   default = False)
-	
-	
-	
-	def draw(self,context):
+	def draw(self, context):
+		preferences = bpy.context.preferences.addons[__name__].preferences
+		
 		layout = self.layout
-		layout.prop(self,"showMeshImportOptions")
-		layout.prop(self,"placeAtCursor")
+		libVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+		layout.label(text=f"RE Asset Library V{libVersion}")
+		
+		gameName = getGameNameFromAssetBrowser()
+		
+		if gameName != None:
+			layout.label(text = f"Library: {gameName}")
+			layout.operator("re_asset.set_game_extract_paths",icon = "CURRENT_FILE")
+			layout.operator("re_asset.extract_game_files",icon = "DOCUMENTS")
+			layout.operator("re_asset.open_chunk_extract_folder",icon = "FOLDER_REDIRECT")
+			layout.operator("re_asset.reload_pak_cache",icon = "FILE_REFRESH")
+			layout.operator("re_asset.check_for_library_update",icon="IMPORT")
+			
+		else:
+			layout.separator()
+			layout.label(text = f"No RE Asset library is selected.")
+			layout.operator("re_asset.download_re_asset_library",icon = "INTERNET")
+		layout.separator(type="LINE")
+		layout.label(text = "RE Asset Settings")
+		layout.prop(preferences,"showMeshImportOptions")
+		layout.prop(preferences,"placeAtCursor")
 		#layout.prop(self,"instanceDuplicates")#TODO
-		layout.prop(self,"forceExtract")
-		
-	@classmethod
-	def poll(self,context):
-		return context is not None and context.scene is not None
-	
-	def invoke(self,context,event):
-		preferences = bpy.context.preferences.addons[__name__].preferences
-		self.showMeshImportOptions = preferences.showMeshImportOptions
-		self.placeAtCursor = preferences.placeAtCursor
-		self.instanceDuplicates = preferences.instanceDuplicates
-		self.forceExtract = preferences.forceExtract
-		
-		return context.window_manager.invoke_props_dialog(self)
-	def execute(self, context):
-		
-		preferences = bpy.context.preferences.addons[__name__].preferences
-		preferences.showMeshImportOptions = self.showMeshImportOptions
-		preferences.placeAtCursor = self.placeAtCursor
-		preferences.instanceDuplicates = self.instanceDuplicates
-		preferences.forceExtract = self.forceExtract
-		
-		self.report({"INFO"},"Set RE Asset settings.")
-		return {'FINISHED'}
-	
+		layout.prop(preferences,"forceExtract")
 
 class WM_OT_OpenFileLocation(Operator):
 	bl_label = "Open Asset Location"
@@ -586,7 +580,7 @@ class WM_OT_OpenFileLocation(Operator):
 				chunkList = getChunkPathList(gameName)
 				if len(chunkList) != 0:
 					for chunkPath in chunkList:
-						realPath = wildCardFileSearch(os.path.join(chunkPath,filePath)+".*")
+						realPath = wildCardFileSearch(glob.escape(os.path.join(chunkPath,filePath))+".*")
 						if realPath != None:
 							os.startfile(os.path.split(realPath)[0])
 							self.report({"INFO"},"Opened file location.")
@@ -603,7 +597,8 @@ class WM_OT_OpenFileLocation(Operator):
 		return {'FINISHED'}
 	
 def re_asset_settings_button(self, context):
-    self.layout.operator(WM_OT_SetREAssetSettings.bl_idname,icon = "SETTINGS")
+	self.layout.popover("ASSETBROWSER_PT_REAssetToolPanel",icon = "SETTINGS")
+    #self.layout.operator(WM_OT_SetREAssetSettings.bl_idname,icon = "SETTINGS")
 def re_asset_open_file_location_button(self, context):
     self.layout.operator(WM_OT_OpenFileLocation.bl_idname,icon = "FOLDER_REDIRECT")
 
@@ -743,7 +738,6 @@ classes = [
 	ImportREAssetLib,
 	
 	
-	WM_OT_SetREAssetSettings,
 	WM_OT_OpenFileLocation,
 	WM_OT_RenderREAssets,
 	WM_OT_FetchREAssetThumbnails,
@@ -754,6 +748,7 @@ classes = [
 	WM_OT_PackageREAssetLibrary,
 	OBJECT_PT_ExtractGameFilesPanel,
 	OBJECT_PT_REAssetLibraryPanel,
+	ASSETBROWSER_PT_REAssetToolPanel,
 	
 	
 	]
@@ -772,6 +767,19 @@ def register():
 	bpy.app.handlers.blend_import_post.append(REAssetPostHandler)
 	bpy.app.timers.register(on_register, first_interval=.01)
 	
+	#Add RE Assets workspace under File > New
+	addonDir = os.path.split(bpy.path.abspath(__file__))[0]
+	WORKSPACE_SRC = os.path.join(addonDir,"Resources","Blend","REAssetWorkspace.blend")
+	WORKSPACE_DEST = os.path.join(bpy.path.abspath(bpy.utils.script_path_user()), "startup","bl_app_templates_user","RE_Assets","startup.blend")
+	
+	try:
+		os.makedirs(os.path.split(WORKSPACE_DEST)[0],exist_ok = True)
+	except Exception as err:
+		print(f"Failed to create RE Asset workspace folder {str(err)}")
+	try:
+		shutil.copy(WORKSPACE_SRC,WORKSPACE_DEST)
+	except Exception as err:
+		print(f"Failed to copy RE Asset workspace blend file {str(err)}")
 	
 def unregister():
 	addon_updater_ops.unregister()
@@ -781,5 +789,15 @@ def unregister():
 	bpy.types.ASSETBROWSER_MT_editor_menus.remove(re_asset_open_file_location_button)
 	if REAssetPostHandler in bpy.app.handlers.blend_import_post:
 		bpy.app.handlers.blend_import_post.remove(REAssetPostHandler)
+	
+	#Removing on unregister causes issues when loading the workspace
+	"""	
+	WORKSPACE_DEST = os.path.join(bpy.path.abspath(bpy.utils.script_path_user()), "startup","bl_app_templates_user","RE_Assets","startup.blend")
+	try:
+		os.remove(WORKSPACE_DEST)
+		#pass
+	except:
+		pass
+	"""
 if __name__ == '__main__':
 	register()

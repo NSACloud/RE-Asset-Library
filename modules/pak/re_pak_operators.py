@@ -2,12 +2,14 @@
 import bpy
 import os
 import json
+from pathlib import Path
 
 from bpy.types import Operator
 
 from ..blender_utils import showMessageBox
 from ..asset.re_asset_utils import getFileCRC,loadREAssetCatalogFile,buildNativesPathFromCatalogEntry
 from ..asset.blender_re_asset import addChunkPath
+from ..asset.re_asset_operators import getAssetBlendPathFromAssetBrowser
 from .re_pak_utils import loadGameInfo,scanForPakFiles,createPakCacheFile,extractPakMP,STREAMING_FILE_TYPE_SET,createPakPatch
 from .re_pak_propertyGroups import ToggleStringPropertyGroup
 
@@ -95,7 +97,7 @@ class WM_OT_SetExtractInfo(Operator):
 		exePath = None
 		dirPath = None
 		if os.path.isfile(libPath) and "REAssetLibrary_" in libPath and libPath.endswith(".blend"):
-			gameName = libPath.split("REAssetLibrary_")[1].split(".blend")[0]
+			gameName = os.path.split(libPath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 			libDir = os.path.split(libPath)[0]
 			if os.path.isfile(bpy.path.abspath(self.exePath)):
 				if os.path.split(self.exePath)[1] not in wrongEXESet:
@@ -161,9 +163,34 @@ class WM_OT_SetExtractInfo(Operator):
 		return bpy.context.scene is not None
 	def invoke(self,context,event):
 		if self.libraryPath == "":
-			if "REAssetLibrary_" in os.path.split(bpy.context.blend_data.filepath)[1]:
+			if "REAssetLibrary_" in os.path.split(bpy.context.blend_data.filepath)[1]:#Set extract path from asset library blend file
 				self.libraryPath = bpy.context.blend_data.filepath
-		
+			else:#Set extract path from asset browser dropdown menu
+				blendPath = getAssetBlendPathFromAssetBrowser()
+				if blendPath != None:
+					self.libraryPath = blendPath
+					
+		#Pre fill fields if extract paths have been set before
+		if self.libraryPath != "":
+			libPath = bpy.path.abspath(self.libraryPath)
+			libDir = os.path.split(libPath)[0]
+			gameName = os.path.split(libPath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			extractInfoPath = os.path.join(libDir,f"ExtractInfo_{gameName}.json")
+			if os.path.isfile(extractInfoPath):
+				try:
+					with open(extractInfoPath,"r", encoding ="utf-8") as file:
+						extractInfo = json.load(file)
+						try:
+							self.exePath = extractInfo["exePath"]		
+							path = Path(extractInfo["extractPath"])	
+							parts = path.parts
+							gameExtractIndex = parts.index(f"{gameName}_EXTRACT")
+							self.extractPath = str(Path(*parts[:gameExtractIndex]))
+						except:
+							pass
+						self.platform = extractInfo["platform"]
+				except:
+					raise Exception(f"Failed to load {extractInfoPath}")
 		region = bpy.context.region
 		centerX = region.width // 2
 		centerY = region.height
@@ -172,7 +199,16 @@ class WM_OT_SetExtractInfo(Operator):
 	def draw(self,context):
 		layout = self.layout
 		layout.prop(self,"exePath")
-		layout.prop(self,"extractPath")
+		row = layout.row()
+		
+		if len(self.extractPath) > 70:
+			row.alert = True
+			row.prop(self,"extractPath")
+			layout.label(text="Extract path is very long.",icon = "ERROR")
+			layout.label(text="File paths may exceed the max length of 255 characters and fail to extract.")
+			layout.label(text="Consider changing this to a shorter path such as C:\EXTRACT.")
+		else:
+			row.prop(self,"extractPath")
 		layout.prop(self,"platform")
 EXTRACT_WINDOW_SIZE = 750
 SPLIT_FACTOR = .45
@@ -297,9 +333,11 @@ class WM_OT_ExtractGameFiles(Operator):
 		for row in [entry for entry in loadREAssetCatalogFile(self.catalogPath) if entry[2] in checkedCategorySet]:
 			nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION",999), self.platform)
 			filePathList.append(nativesPath)
+			#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
 			if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
 				#No need to verify if the path exists, that will be done when they're hashed
 				streamingPath = nativesPath.replace(f"natives/{self.platform}/",f"natives/{self.platform}/streaming/")
+				#print(streamingPath)
 				filePathList.append(streamingPath)
 		try: 
 			bpy.ops.wm.console_toggle()
@@ -325,11 +363,20 @@ class WM_OT_ExtractGameFiles(Operator):
 		#currentX = event.mouse_region_X
 		#currentY = event.mouse_region_Y
 		
-		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
-		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-		except:
+		
+		if os.path.split(bpy.context.blend_data.filepath)[1].startswith("REAssetLibrary_"):#Operator run in asset blend file
+			blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
+			try:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			except:
+				gameName = "UNKN"
+		else:#Operator run elsewhere from asset browser
 			gameName = "UNKN"
+			blendPath = getAssetBlendPathFromAssetBrowser()
+			if blendPath != None:
+				gameName = os.path.split(blendPath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+				blendDir = os.path.split(blendPath)[0]
+			
 		print(f"Game Name:{gameName}")
 		self.gameName = gameName
 		extractInfoPath = os.path.join(blendDir,f"ExtractInfo_{gameName}.json")
@@ -449,11 +496,18 @@ class WM_OT_OpenExtractFolder(Operator):
 
 	def execute(self, context):
 		
-		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
-		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-		except:
+		if os.path.split(bpy.context.blend_data.filepath)[1].startswith("REAssetLibrary_"):#Operator run in asset blend file
+			blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
+			try:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			except:
+				gameName = "UNKN"
+		else:#Operator run elsewhere from asset browser
 			gameName = "UNKN"
+			blendPath = getAssetBlendPathFromAssetBrowser()
+			if blendPath != None:
+				gameName = os.path.split(blendPath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+				blendDir = os.path.split(blendPath)[0]
 		print(f"Game Name:{gameName}")
 		extractInfoPath = os.path.join(blendDir,f"ExtractInfo_{gameName}.json")
 		if os.path.isfile(extractInfoPath):
@@ -481,11 +535,18 @@ class WM_OT_ReloadPakCache(Operator):
 	bl_idname = "re_asset.reload_pak_cache"
 
 	def execute(self, context):
-		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
-		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-		except:
+		if os.path.split(bpy.context.blend_data.filepath)[1].startswith("REAssetLibrary_"):#Operator run in asset blend file
+			blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
+			try:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			except:
+				gameName = "UNKN"
+		else:#Operator run elsewhere from asset browser
 			gameName = "UNKN"
+			blendPath = getAssetBlendPathFromAssetBrowser()
+			if blendPath != None:
+				gameName = os.path.split(blendPath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+				blendDir = os.path.split(blendPath)[0]
 		print(f"Game Name:{gameName}")
 		extractInfoPath = os.path.join(blendDir,f"ExtractInfo_{gameName}.json")
 		if os.path.isfile(extractInfoPath):

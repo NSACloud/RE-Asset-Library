@@ -8,7 +8,7 @@ from bpy.types import (Panel,
 					   )
 
 class OBJECT_PT_REAssetLibraryPanel(Panel):
-	bl_label = "RE Asset Library Tools"
+	bl_label = "RE Asset Library Developer Tools"
 	bl_idname = "OBJECT_PT_re_asset_library_panel"
 	bl_space_type = "VIEW_3D"   
 	bl_region_type = "UI"
@@ -35,4 +35,4 @@ class OBJECT_PT_REAssetLibraryPanel(Panel):
 		layout.label(text = "Export Tools")
 		layout.operator("re_asset.open_library_folder")
 		layout.operator("re_asset.package_re_asset_library")
-		
+

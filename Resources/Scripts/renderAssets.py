@@ -300,7 +300,7 @@ if os.path.isfile(RENDER_JOB_PATH):
         bpy.ops.wm.console_toggle()
     except:
         pass
-    exit(222)
+    bpy.ops.wm.quit_blender()
 	
     
 else:
