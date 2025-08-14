@@ -54,7 +54,7 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 		raise Exception(f"Failed to load {compendiumPath}")
 	assetLibDir = os.path.split(compendiumPath)[0]
 	gameName = os.path.split(compendiumPath)[1].split("MaterialCompendium_")[1].split(".json")[0]
-	gameInfoPath = os.path.join(assetLibDir,f"GameInfo_{gameName}.json")	
+	gameInfoPath = os.path.join(assetLibDir,f"GameInfo_{gameName}.json")
 	gameInfo = loadGameInfo(gameInfoPath)
 	mdfVersion = gameInfo["fileVersionDict"]["MDF2_VERSION"]
 	
@@ -66,6 +66,7 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 		with open(extractInfoPath,"r", encoding ="utf-8") as file:
 			extractInfo = json.load(file)
 			chunkPath = os.path.join(extractInfo["extractPath"],"natives",extractInfo["platform"])
+			platform = extractInfo["platform"]
 			print(f"Extract Path: {chunkPath}")
 	except:
 		raise Exception(f"Failed to load {extractInfoPath}")
@@ -75,7 +76,7 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 	if not os.path.isfile(pakCachePath):
 		raise Exception("Pak cache path is invalid")
 	print("Extracting newest shader files...")
-	mdfExtractList = [entry["mdfPath"] for entry in materialCompendium.values()]
+	mdfExtractList = [f"natives/{platform}/"+entry["mdfPath"] + f".{mdfVersion}" for entry in materialCompendium.values()]
 	#print(mdfExtractList)
 	extractFilesFromPakCache(gameInfoPath, mdfExtractList, extractInfoPath, pakCachePath,extractDependencies=False)
 	print(f"Extracted {len(mdfExtractList)} files.")
@@ -107,67 +108,65 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 						sampleMaterial = None
 				else:
 					sampleMaterial = mmtrMaterialCache[mmtrHash]
-					if sampleMaterial != None:
+				if sampleMaterial != None:
+					
+					#Properties
+					#print(f"material.materialName")
+					newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
+					#print(newPropNameSet)
+			        
+					oldPropNameSet = set([item.propName for item in material.propertyList])
+					#print(oldPropNameSet)
+					addedPropDifference = newPropNameSet.difference(oldPropNameSet)
+					if len(addedPropDifference) != 0:
+						requiresUpdate = True
+						print(f"Added properties in {material.materialName} material:")
+						for propName in addedPropDifference:
+							for prop in sampleMaterial.propertyList:
+								if prop.propName == propName:
+									newProp = Property()
+									newProp.propName = propName
+									newProp.value = prop.value[:]
+									material.propertyList.append(newProp)
+						print(addedPropDifference)
+					removedPropDifference = oldPropNameSet.difference(newPropNameSet)
+					if len(removedPropDifference) != 0:
+						requiresUpdate = True
+						print(f"Removed properties in {material.materialName} material:")
+						material.propertyList = [mat for mat in material.propertyList if mat.propName not in removedPropDifference]
+						print(removedPropDifference)
 						
-						#Properties
-						
-						newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
-						#print(newPropNameSet)
-				        
-				        
-						oldPropNameSet = set([item.propName for item in material.propertyList])
-						#print(oldPropNameSet)
-				        
-						addedPropDifference = newPropNameSet.difference(oldPropNameSet)
-						if len(addedPropDifference) != 0:
-							requiresUpdate = True
-							print(f"Added properties in {material.materialName} material:")
-							for propName in addedPropDifference:
-								for prop in sampleMaterial.propertyList:
-									if prop.propName == propName:
-										newProp = Property()
-										newProp.propName = propName
-										newProp.value = prop.value[:]
-										material.propertyList.append(newProp)
-							print(addedPropDifference)
-						removedPropDifference = oldPropNameSet.difference(newPropNameSet)
-						if len(removedPropDifference) != 0:
-							requiresUpdate = True
-							print(f"Removed properties in {material.materialName} material:")
-							material.propertyList = [mat for mat in material.propertyList if mat.propName not in removedPropDifference]
-							print(removedPropDifference)
-							
-						#Texture Bindings
-						
-						newBindingNameSet = set([item.textureType for item in sampleMaterial.textureList])
-						#print(newPropNameSet)
-				        
-				        
-						oldBindingNameSet = set([item.textureType for item in material.textureList])
-						#print(oldPropNameSet)
-				        
-						addedBindingDifference = newBindingNameSet.difference(oldBindingNameSet)
-						if len(addedBindingDifference) != 0:
-							requiresUpdate = True
-							print(f"Added texture bindings in {material.materialName} material:")
-							for textureType in addedBindingDifference:
-								for binding in sampleMaterial.textureList:
-									if binding.textureType == textureType:
-										newBinding = TextureBinding()
-										newBinding.textureType = textureType
-										newBinding.texturePath = binding.texturePath
-										material.textureList.append(newBinding)
-							print(addedBindingDifference)
-						removedBindingDifference = oldBindingNameSet.difference(newBindingNameSet)
-						if len(removedBindingDifference) != 0:
-							requiresUpdate = True
-							print(f"Removed texture bindings in {material.materialName} material:")
-							material.textureList = [mat for mat in material.textureList if mat.textureType not in removedBindingDifference]
-							print(removedBindingDifference)
-						
-					else:
-						print(f"Sample material for {material.mmtrPath} missing.")
-						print(mmtrHash)
+					#Texture Bindings
+					
+					newBindingNameSet = set([item.textureType for item in sampleMaterial.textureList])
+					#print(newPropNameSet)
+			        
+			        
+					oldBindingNameSet = set([item.textureType for item in material.textureList])
+					#print(oldPropNameSet)
+			        
+					addedBindingDifference = newBindingNameSet.difference(oldBindingNameSet)
+					if len(addedBindingDifference) != 0:
+						requiresUpdate = True
+						print(f"Added texture bindings in {material.materialName} material:")
+						for textureType in addedBindingDifference:
+							for binding in sampleMaterial.textureList:
+								if binding.textureType == textureType:
+									newBinding = TextureBinding()
+									newBinding.textureType = textureType
+									newBinding.texturePath = binding.texturePath
+									material.textureList.append(newBinding)
+						print(addedBindingDifference)
+					removedBindingDifference = oldBindingNameSet.difference(newBindingNameSet)
+					if len(removedBindingDifference) != 0:
+						requiresUpdate = True
+						print(f"Removed texture bindings in {material.materialName} material:")
+						material.textureList = [mat for mat in material.textureList if mat.textureType not in removedBindingDifference]
+						print(removedBindingDifference)
+					
+				else:
+					print(f"Sample material for {material.mmtrPath} missing.")
+					print(mmtrHash)
 			if requiresUpdate:
 				if createBackups:
 					makeMDFBackup(mdfPath)
@@ -211,16 +210,17 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 		with open(extractInfoPath,"r", encoding ="utf-8") as file:
 			extractInfo = json.load(file)
 			chunkPath = os.path.join(extractInfo["extractPath"],"natives",extractInfo["platform"])
+			platform = extractInfo["platform"]
 			print(f"Extract Path: {chunkPath}")
 	except:
 		raise Exception(f"Failed to load {extractInfoPath}")
 	
-	pakCachePath = os.path.join(assetLibDir,f"PakCache_{gameName}.pakcache")	
+	pakCachePath = os.path.join(assetLibDir,f"PakCache_{gameName}.pakcache")
 	
 	if not os.path.isfile(pakCachePath):
 		raise Exception("Pak cache path is invalid")
 	print("Extracting newest shader files...")
-	mdfExtractList = [entry["mdfPath"] for entry in materialCompendium.values()]
+	mdfExtractList = [f"natives/{platform}/"+entry["mdfPath"] + f".{mdfVersion}" for entry in materialCompendium.values()]
 	#print(mdfExtractList)
 	extractFilesFromPakCache(gameInfoPath, mdfExtractList, extractInfoPath, pakCachePath,extractDependencies=False)
 	print(f"Extracted {len(mdfExtractList)} files.")
@@ -251,93 +251,93 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 					sampleMaterial = None
 			else:
 				sampleMaterial = mmtrMaterialCache[mmtrHash]
-				if sampleMaterial != None:
-					
-					#Properties
-					
-					newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
-					#print(newPropNameSet)
-			        
-			        
-					oldPropNameSet = set([item.prop_name for item in matData.propertyList_items])
-					#print(oldPropNameSet)
-			        
-					addedPropDifference = newPropNameSet.difference(oldPropNameSet)
-					if len(addedPropDifference) != 0:
-						requiresUpdate = True
-						print(f"Added properties in {materialObj.name}:")
-						for propName in addedPropDifference:
-							for prop in sampleMaterial.propertyList:
-								if prop.propName == propName:
-									newProp = matData.propertyList_items.add()
-									newProp.prop_name = propName
-									newProp.padding = prop.padding
-									lowerPropName = prop.propName.lower()
-									if  (prop.paramCount == 4 and ("color" in lowerPropName or "_col_" in lowerPropName) and "rate" not in lowerPropName):
-										newProp.data_type = "COLOR"
-										newProp.color_value = prop.propValue
-									elif prop.paramCount == 1 and ("Use" in prop.propName or "_or_" in prop.propName or prop.propName.startswith("is")):
-										newProp.data_type = "BOOL"
-										newProp.bool_value = bool(prop.propValue[0])
-									elif prop.paramCount > 1:
-										newProp.data_type = "VEC4"
-										newProp.float_vector_value = tuple(prop.propValue)
-									else:
-										newProp.data_type = "FLOAT"
-										newProp.float_value = float(prop.propValue[0])
+			if sampleMaterial != None:
+				
+				#Properties
+				
+				newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
+				#print(newPropNameSet)
+		        
+		        
+				oldPropNameSet = set([item.prop_name for item in matData.propertyList_items])
+				#print(oldPropNameSet)
+		        
+				addedPropDifference = newPropNameSet.difference(oldPropNameSet)
+				if len(addedPropDifference) != 0:
+					requiresUpdate = True
+					print(f"Added properties in {materialObj.name}:")
+					for propName in addedPropDifference:
+						for prop in sampleMaterial.propertyList:
+							if prop.propName == propName:
+								newProp = matData.propertyList_items.add()
+								newProp.prop_name = propName
+								newProp.padding = prop.padding
+								lowerPropName = prop.propName.lower()
+								if  (prop.paramCount == 4 and ("color" in lowerPropName or "_col_" in lowerPropName) and "rate" not in lowerPropName):
+									newProp.data_type = "COLOR"
+									newProp.color_value = prop.propValue
+								elif prop.paramCount == 1 and ("Use" in prop.propName or "_or_" in prop.propName or prop.propName.startswith("is")):
+									newProp.data_type = "BOOL"
+									newProp.bool_value = bool(prop.propValue[0])
+								elif prop.paramCount > 1:
+									newProp.data_type = "VEC4"
+									newProp.float_vector_value = tuple(prop.propValue)
+								else:
+									newProp.data_type = "FLOAT"
+									newProp.float_value = float(prop.propValue[0])
 
-						print(addedPropDifference)
-					removedPropDifference = oldPropNameSet.difference(newPropNameSet)
-					if len(removedPropDifference) != 0:
-						requiresUpdate = True
-						indicesRemovalList = []
-						
-						for index, prop in enumerate(matData.propertyList_items):
-							if prop.prop_name in removedPropDifference:
-								indicesRemovalList.append(index)
-						
-						for index in reversed(sorted(indicesRemovalList)):
-							matData.propertyList_items.remove(index)
-						print(f"Removed properties in {materialObj.name}")
-						print(removedPropDifference)
-						
-					#Texture Bindings
+					print(addedPropDifference)
+				removedPropDifference = oldPropNameSet.difference(newPropNameSet)
+				if len(removedPropDifference) != 0:
+					requiresUpdate = True
+					indicesRemovalList = []
 					
-					newBindingNameSet = set([item.textureType for item in sampleMaterial.textureList])
-					#print(newPropNameSet)
-			        
-			        
-					oldBindingNameSet = set([item.textureType for item in matData.textureBindingList_items])
-					#print(oldPropNameSet)
-			        
-					addedBindingDifference = newBindingNameSet.difference(oldBindingNameSet)
-					if len(addedBindingDifference) != 0:
-						requiresUpdate = True
-						print(f"Added texture bindings in {materialObj.name} material:")
-						for textureType in addedBindingDifference:
-							for binding in sampleMaterial.textureList:
-								if binding.textureType == textureType:
-									newBinding = matData.textureBindingList_items.add()
-									newBinding.textureType = textureType
-									newBinding.path = binding.texturePath
-						print(addedBindingDifference)
-					removedBindingDifference = oldBindingNameSet.difference(newBindingNameSet)
-					if len(removedBindingDifference) != 0:
-						requiresUpdate = True
-						indicesRemovalList = []
-						
-						for index, binding in enumerate(matData.textureBindingList_items):
-							if binding.textureType in removedBindingDifference:
-								indicesRemovalList.append(index)
-						
-						for index in reversed(sorted(indicesRemovalList)):
-							matData.textureBindingList_items.remove(index)
-						print(f"Removed texture bindings in {materialObj.name}")
-						print(removedBindingDifference)
+					for index, prop in enumerate(matData.propertyList_items):
+						if prop.prop_name in removedPropDifference:
+							indicesRemovalList.append(index)
 					
-				else:
-					print(f"Sample material for {matData.mmtrPath} missing.")
-					print(mmtrHash)
+					for index in reversed(sorted(indicesRemovalList)):
+						matData.propertyList_items.remove(index)
+					print(f"Removed properties in {materialObj.name}")
+					print(removedPropDifference)
+					
+				#Texture Bindings
+				
+				newBindingNameSet = set([item.textureType for item in sampleMaterial.textureList])
+				#print(newPropNameSet)
+		        
+		        
+				oldBindingNameSet = set([item.textureType for item in matData.textureBindingList_items])
+				#print(oldPropNameSet)
+		        
+				addedBindingDifference = newBindingNameSet.difference(oldBindingNameSet)
+				if len(addedBindingDifference) != 0:
+					requiresUpdate = True
+					print(f"Added texture bindings in {materialObj.name} material:")
+					for textureType in addedBindingDifference:
+						for binding in sampleMaterial.textureList:
+							if binding.textureType == textureType:
+								newBinding = matData.textureBindingList_items.add()
+								newBinding.textureType = textureType
+								newBinding.path = binding.texturePath
+					print(addedBindingDifference)
+				removedBindingDifference = oldBindingNameSet.difference(newBindingNameSet)
+				if len(removedBindingDifference) != 0:
+					requiresUpdate = True
+					indicesRemovalList = []
+					
+					for index, binding in enumerate(matData.textureBindingList_items):
+						if binding.textureType in removedBindingDifference:
+							indicesRemovalList.append(index)
+					
+					for index in reversed(sorted(indicesRemovalList)):
+						matData.textureBindingList_items.remove(index)
+					print(f"Removed texture bindings in {materialObj.name}")
+					print(removedBindingDifference)
+				
+			else:
+				print(f"Sample material for {matData.mmtrPath} missing.")
+				print(mmtrHash)
 		if requiresUpdate:
 			updatedFileCount += 1
 			print("Update completed.")

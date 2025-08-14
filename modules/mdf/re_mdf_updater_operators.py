@@ -88,7 +88,7 @@ class WM_OT_BatchMDFUpdater(Operator):
 			layout.prop(self,"searchSubdirectories")
 			layout.prop(self,"createBackups")
 		else:
-			layout.label(f"No asset libraries that support this feature are installed.",icon = "ERROR")
+			layout.label(text=f"No asset libraries that support this feature are installed.",icon = "ERROR")
 
 class WM_OT_BlenderMDFUpdater(Operator):
 	bl_label = "Blender MDF Updater"
