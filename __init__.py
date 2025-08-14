@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 13),
+	"version": (0, 14),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -78,6 +78,12 @@ from .modules.asset.re_asset_operators import (
 	
 
 )
+from .modules.mdf.re_mdf_updater_operators import (
+	WM_OT_BatchMDFUpdater,
+	WM_OT_BlenderMDFUpdater,
+
+)
+
 from .modules.asset.re_asset_propertyGroups import (
 	REAssetWhiteListEntryPropertyGroup,
 	ASSET_UL_FileTypeWhiteList,
@@ -726,6 +732,9 @@ classes = [
 	WM_OT_OpenExtractFolder,
 	WM_OT_ReloadPakCache,
 	WM_OT_CreatePakPatch,
+	
+	WM_OT_BatchMDFUpdater,
+	WM_OT_BlenderMDFUpdater,
 	
 	WM_OT_InitializeREAssetLibrary,
 	WM_OT_DownloadREAssetLibrary,

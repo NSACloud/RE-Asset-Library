@@ -97,7 +97,7 @@ def generateMaterialCompendium(libraryDir,gameName):
 					for material in mdfFile.materialList:
 						mmtrLowerPathHash = hashUTF8(material.mmtrPath.lower())
 						if mmtrLowerPathHash not in mmtrUsageDict:
-							mmtrUsageDict[mmtrLowerPathHash] = {"name":os.path.splitext(os.path.split(material.mmtrPath)[1])[0],"mdfPath":path,"matNameHash":material.matNameHash}
+							mmtrUsageDict[mmtrLowerPathHash] = {"name":os.path.splitext(os.path.split(material.mmtrPath)[1])[0],"mdfPath":os.path.splitext(path)[0],"matNameHash":material.matNameHash}
 				except Exception as err:
 					print(f"Failed to read ({fullPath}:{str(err)})")
 		sortedDict = {k: v for k, v in sorted(mmtrUsageDict.items(), key=lambda item: item[1]["name"])}

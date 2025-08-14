@@ -609,18 +609,18 @@ class MDFFile():
 		self.Header.write(file)
 		#It would be more faster and more efficient to write everything to buffers instead of looping again for each entry type but this is fast enough so ¯\_(ツ)_/¯
 		#Loop to write material entries
-		print("Writing Material Entries")
+		#print("Writing Material Entries")
 		for material in self.materialList:
 			#print(material)
 			material.write(file,version)
 		#Loop to write texture entries
-		print("Writing Texture Headers")
+		#print("Writing Texture Headers")
 		for material in self.materialList:
 			file.seek(material.texHeadersOffset)
 			for texture in material.textureList:
 				texture.write(file,version)
 		#Loop to write property headers
-		print("Writing Property Headers")
+		#print("Writing Property Headers")
 		for material in self.materialList:
 			file.seek(material.propHeadersOffset)
 			for prop in material.propertyList:
@@ -632,7 +632,7 @@ class MDFFile():
 				material.gpbfBufferNameList[i].write(file)
 				material.gpbfBufferPathList[i].write(file)
 		#Write string table
-		print("Writing Strings")
+		#print("Writing Strings")
 		"""
 		for string in sorted(list(stringOffsetDict.items()),key = lambda item: item[1]):
 			write_unicode_string(file, string[0])
@@ -643,7 +643,7 @@ class MDFFile():
 		self.stringList = []
 		#Loop over materials one last time to write property values
 		
-		print("Writing Property Values")
+		#print("Writing Property Values")
 		for material in self.materialList:
 			for prop in material.propertyList:
 				file.seek(material.propDataOffset + prop.propDataOffset)
@@ -658,7 +658,7 @@ class MDFFile():
 				material.mmtrsData.write(file)
 def readMDF(filepath):
 	#print(textColors.OKCYAN + "__________________________________\nMDF read started." + textColors.ENDC)
-	print("Opening " + filepath)
+	#print("Opening " + filepath)
 	try:  
 		file = open(filepath,"rb")
 	except:
@@ -694,7 +694,7 @@ def readMDFFast(filepath):
 	return mdfFile
 def writeMDF(mdfFile,filepath):
 	#print(textColors.OKCYAN + "__________________________________\nMDF write started." + textColors.ENDC)
-	print("Opening " + filepath)
+	#print("Opening " + filepath)
 	try:
 		file = open(filepath,"wb")
 	except:

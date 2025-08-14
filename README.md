@@ -1,8 +1,15 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.13 (6/1/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.14 (8/13/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+# PSA (READ THIS): 
 
+**The "RE Asset" tab is now located in the "RE Asset Library" menu inside the asset browser.**
+
+<img width="755" height="372" alt="image" src="https://github.com/user-attachments/assets/53573cf4-cbff-4f7c-9694-789fec3800e6" />
+
+**Also, you can create an asset browser workspace by going to File > New > RE Assets.**
+---
 **BETA RELEASE, THERE MAY BE BUGS**
 
 This Blender addon adds the ability to browse through RE Engine models and other files inside the asset browser.
@@ -184,6 +191,12 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.14 - 8/13/2025
+* Added MDF updater functionality.
+This allows for outdated MDF (material) files to be updated easily with a click of a button.
+The MDF updater buttons can be found in the RE MDF tab under the RE Asset Extensions tab.
+
 
 ### V0.13 - 6/1/2025
 * Added RE Assets workspace. It can be accessed using File > New > RE Assets

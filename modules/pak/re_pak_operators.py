@@ -103,10 +103,12 @@ class WM_OT_SetExtractInfo(Operator):
 				if os.path.split(self.exePath)[1] not in wrongEXESet:
 					
 					exePath = os.path.realpath(bpy.path.abspath(self.exePath))
+					print(f"EXE Path:{exePath}")
 					
 				
 			try:
 				newDirPath = os.path.realpath(os.path.join(bpy.path.abspath(self.extractPath),f"{gameName}_EXTRACT","re_chunk_000"))
+				print(f"Extract Path:{newDirPath}")
 				os.makedirs(newDirPath,exist_ok = True)
 				if os.path.isdir(newDirPath):
 					dirPath = newDirPath

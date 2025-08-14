@@ -195,6 +195,9 @@ def zipLibrary(blendDir,gameName):
 	print(f"Asset Catalog Path:{assetCatalogPath}")
 	thumbnailDir = os.path.join(blendDir,f"REAssetLibrary_{gameName}_thumbnails")
 	print(f"Thumbnail Directory:{thumbnailDir}")
+	materialCompendiumPath = os.path.join(blendDir,f"MaterialCompendium_{gameName}.json")
+	
+	
 	outputPath = os.path.join(blendDir,f"{gameName}.reassetlib")
 	
 	blendFilePath = os.path.join(blendDir,f"REAssetLibrary_{gameName}.blend")
@@ -229,6 +232,8 @@ def zipLibrary(blendDir,gameName):
 			zf.write(assetCatalogPath, arcname=f"{gameName}\REAssetCatalog_{gameName}.tsv")
 			zf.write(packedAssetCatalogPath, arcname=f"{gameName}\packedAssetCat_{gameName}.zst")
 			zf.write(packageInfoPath, arcname=f"{gameName}\packageInfo_{gameName}.json")
+			if os.path.isfile(materialCompendiumPath):
+				zf.write(materialCompendiumPath, arcname=f"{gameName}\MaterialCompendium_{gameName}.json")
 			for file in os.scandir(thumbnailDir):
 		        
 				if file.name.endswith(IMAGE_FORMAT):
