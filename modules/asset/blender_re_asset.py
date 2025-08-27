@@ -91,8 +91,7 @@ def importREMeshAsset(obj,meshPath,assetPreferences):
 	else:
 		showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
 
-					
-				
+
 def importREChainAsset(obj,chainPath,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
 	if chainPath != None:
@@ -131,3 +130,16 @@ def importREChain2Asset(obj,chainPath,assetPreferences):
 			
 	else:
 		showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		
+def importREFBXSkelAsset(obj,fbxSkelPath,assetPreferences):
+	print(f"RE Asset Library - Attemping import of {obj.name}")
+	print("Game Name: "+str(obj.get("~GAME")))
+	
+	if fbxSkelPath != None:
+		#objMatrix = obj.matrix_world
+		
+		split = os.path.split(fbxSkelPath)
+		bpy.ops.re_fbxskel.importfile(filepath = fbxSkelPath,directory=split[0], files=[{"name":split[1]}])
+	else:
+		showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")					
+				

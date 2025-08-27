@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 15),
+	"version": (0, 16),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -50,6 +50,7 @@ from .modules.asset.blender_re_asset import (
 	importREMeshAsset,
 	importREChainAsset,
 	importREChain2Asset,
+	importREFBXSkelAsset,
 	)
 from .modules.asset.re_asset_operators import (
 	getGameNameFromAssetBrowser,
@@ -142,6 +143,9 @@ class LIST_OT_ResetWhiteListItems(Operator):
 		
 		item = whiteList.add()
 		item.fileType = "chain2"
+		
+		item = whiteList.add()
+		item.fileType = "fbxskel"
 		return{'FINISHED'}
 class REAssetPreferences(AddonPreferences):
 	bl_idname = __name__
@@ -697,6 +701,8 @@ def REAssetPostHandler(lapp_context):
 							importREChainAsset(item.id,assetPath,addonPreferences)
 						case "CHAIN2":
 							importREChain2Asset(item.id,assetPath,addonPreferences)
+						case "FBXSKEL":
+							importREFBXSkelAsset(item.id,assetPath,addonPreferences)
 						case _:
 							print(f"RE Asset Library - Unsupported Asset Type, cannot import. {item.id.name} - {assetType} ")
 							print("Make sure all RE addons are up to date.")

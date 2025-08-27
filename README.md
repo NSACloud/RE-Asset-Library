@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.15 (8/14/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.16 (8/27/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 # PSA (READ THIS): 
 
 **The "RE Asset" tab is now located in the "RE Asset Library" menu inside the asset browser.**
@@ -191,6 +191,12 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.16 - 8/27/2025
+* Added FBXSkel importing support to asset libaries.
+The latest version of RE Mesh Editor is required to import them.
+* Fixed issue where an error would occur when attempting to read empty pak files on RE2RT.
+
 
 ### V0.15 - 8/14/2025
 * Fixed some issues with the MDF updater.

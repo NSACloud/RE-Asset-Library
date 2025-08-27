@@ -71,6 +71,8 @@ def isModPak(pakPath):
 			pakFile.header.read(file)
 			result = pakFile.header.majorVersion == 4 and pakFile.header.minorVersion == 0 and pakFile.header.feature == 0 and pakFile.header.fingerprint == 0 and "sub_000.pak" in pakPath
 	return result
+def isEmptyPak(pakPath):#RE RT updates remove old patch paks and replace them with nulled files, causing errors
+	return os.path.getsize(pakPath) == 0
 def scanForPakFiles(gameDir):
 	#Returns list of pak files in load order (Base Chunk > Patch Files > DLC)
 	lowPriorityList = []
@@ -82,10 +84,10 @@ def scanForPakFiles(gameDir):
 		if entry.is_file() and entry.name.endswith(".pak"):
 			fullPath = os.path.join(gameDir,entry.name)
 			if "patch_" in entry.name:
-				if not isModPak(fullPath):
+				if not isEmptyPak(fullPath) and not isModPak(fullPath):
 					midPriorityList.append(fullPath)
 			else:
-				if not isModPak(fullPath):
+				if not isEmptyPak(fullPath) and not isModPak(fullPath):
 					lowPriorityList.append(fullPath)
 		elif entry.is_dir():
 			#Scan first level of subdirectories for dlc paks
@@ -94,7 +96,7 @@ def scanForPakFiles(gameDir):
 				if subentry.is_file() and subentry.name.endswith(".pak"):
 					fullPath = os.path.join(dirPath,subentry.name)
 					if "re_dlc" in subentry.name:
-						if not isModPak(fullPath):
+						if not isEmptyPak(fullPath) and not isModPak(fullPath):
 							highPriorityList.append(fullPath)
 						
 	pakPriorityList = []
