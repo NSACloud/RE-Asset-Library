@@ -4,15 +4,15 @@ import os
 import json
 from pathlib import Path
 
-from bpy.types import Operator
-
+from bpy.types import Operator,OperatorFileListElement
+from bpy_extras.io_utils import ImportHelper
 from ..blender_utils import showMessageBox
 from ..asset.re_asset_utils import getFileCRC,loadREAssetCatalogFile,buildNativesPathFromCatalogEntry
 from ..asset.blender_re_asset import addChunkPath
 from ..asset.re_asset_operators import getAssetBlendPathFromAssetBrowser
-from .re_pak_utils import loadGameInfo,scanForPakFiles,createPakCacheFile,extractPakMP,STREAMING_FILE_TYPE_SET,createPakPatch
+from .re_pak_utils import loadGameInfo,scanForPakFiles,createPakCacheFile,extractPakMP,STREAMING_FILE_TYPE_SET,createPakPatch,extractModPak
 from .re_pak_propertyGroups import ToggleStringPropertyGroup
-
+from ..gen_functions import openFolder
 
 
 class WM_OT_PromptSetExtractInfo(Operator):
@@ -664,3 +664,103 @@ class WM_OT_CreatePakPatch(Operator):
 		layout = self.layout
 		layout.prop(self,"pakDir")
 		layout.prop(self,"outPath")
+def getAssetLibraryItems():
+	libEntryList = []
+	for lib in bpy.context.preferences.filepaths.asset_libraries:
+		if lib.name.startswith("RE Assets - "):
+			gameName = lib.name.split("RE Assets - ")[1]
+			gameInfoPath = os.path.join(bpy.path.abspath(lib.path),f"GameInfo_{gameName}.json")
+			if os.path.isfile(gameInfoPath):
+				libEntryList.append((bpy.path.abspath(lib.path),gameName,""))
+	return libEntryList
+class WM_OT_UnpackModPak(bpy.types.Operator, ImportHelper):
+	'''Unpack Mod Pak File'''
+	bl_idname = "re_asset.unpack_mod_pak"
+	bl_label = "Extract Mod Pak"
+	bl_options = {'PRESET', "REGISTER", "UNDO"}
+	files : bpy.props.CollectionProperty(
+			name="File Path",
+			type=OperatorFileListElement,
+			)
+	directory : bpy.props.StringProperty(
+			subtype='DIR_PATH',
+			options={'SKIP_SAVE'}
+			)
+	assetLib: bpy.props.EnumProperty(
+		name="Game",
+		description="Choose which game to extract the pak file for. The corresponding asset library for the game must be installed and set up for extracting files.",
+		items=getAssetLibraryItems()
+		)
+	looseFilesPath : bpy.props.StringProperty(
+			name = "",
+			description = "(Optional) Pick a directory containing loose files to scan for additional file paths. All subdirectories will be searched.\nThis is intended to be used when a mod includes files outside of the pak file.\nTip: hold shift and right click a folder, then click \"Copy as path\" and paste it here.",
+			#subtype='DIR_PATH',
+			default = ""
+			)
+	outputPath : bpy.props.StringProperty(
+			name = "",
+			description = "(Optional) Pick directory to place extracted files.\nTip: hold shift and right click a folder, then click \"Copy as path\" and paste it here.\nIf unchanged, the pak will be extracted to whatever folder it's located in",
+			#subtype='DIR_PATH',
+			default = ""
+			)
+	filename_ext = ".pak"
+	filter_glob: bpy.props.StringProperty(default="*.pak", options={'HIDDEN'})
+	def draw(self, context):
+		layout = self.layout
+		layout.prop(self,"assetLib")
+		layout.label(text = "Loose Files Directory (Optional)")
+		layout.prop(self,"looseFilesPath")
+		layout.label(text = "Output Directory (Optional)")
+		layout.prop(self,"outputPath")
+		layout.label(icon="ERROR",text = "Large pak files may be slow")
+	def invoke(self, context, event):
+		
+		context.window_manager.fileselect_add(self)
+		return {'RUNNING_MODAL'}
+	def execute(self, context):
+		libDir = bpy.path.abspath(self.assetLib)
+		
+		if self.looseFilesPath != "":
+			looseFileDir = bpy.path.abspath(self.looseFilesPath.replace("\"",""))
+		else:
+			looseFileDir = ""
+		if os.path.isdir(libDir) and libDir != "":
+			gameName = os.path.split(libDir)[1]
+			print(f"Game Name:{gameName}")
+			try: 
+				bpy.ops.wm.console_toggle()
+			except:
+				 pass
+			for file in self.files:
+				pakPath = os.path.join(self.directory,file.name)
+				if self.outputPath != "":
+					outPath = bpy.path.abspath(self.outputPath.replace("\"",""))
+				else:
+					outPath = os.path.splitext(pakPath)[0].replace("re_chunk_000","re_chunk_mod")+"_extract"#Rename to re_chunk_mod so the mesh editor doesn't pick it up as a chunk directory
+				
+				
+				extractModPak(libDir,gameName,pakPath,outPath,looseFileDir)
+				try:
+					openFolder(outPath)
+				except:
+					pass
+			try: 
+				bpy.ops.wm.console_toggle()
+			except:
+				 pass
+			
+			self.report({"INFO"},"Finished pak extraction. Do not reupload any mod without the original author's permission!")
+		else:
+			showMessageBox(f"The asset library must be set to the game you're extracting from.",title="Unpack Mod Pak")
+			return {'CANCELLED'}
+		return {'FINISHED'}
+	
+class PAK_FH_drag_import(bpy.types.FileHandler):
+	bl_idname = "PAK_FH_drag_import"
+	bl_label = "File handler for RE Pak extraction"
+	bl_import_operator = "re_asset.unpack_mod_pak"
+	bl_file_extensions = ".pak;"
+	
+	@classmethod
+	def poll_drop(cls, context):
+		return (context.area and context.area.type == 'VIEW_3D')

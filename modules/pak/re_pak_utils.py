@@ -17,8 +17,8 @@ from ..gen_functions import progressBar,formatByteSize,read_ubyte,read_ushort,re
 from .file_re_pak import ReadPakTOC,PakFile,PakTOCEntry,writePak
 from ..hashing.mmh3.pymmh3 import hashUTF16#TODO Replace with pypi mmh3 library, orders of magnitude faster
 from ..encryption.re_pak_encryption import decryptResource
-from ..asset.re_asset_utils import loadGameInfo,getFileCRC,buildNativesPathFromObj
-
+from ..asset.re_asset_utils import loadGameInfo,getFileCRC,buildNativesPathFromObj,loadREAssetCatalogFile,buildNativesPathFromCatalogEntry
+from ..rszmini.re_rsz_utils import getRSZResourcePaths
 from ..mdf.file_re_mdf import MDFFile
 
 STREAMING_FILE_TYPE_SET = frozenset([".mesh",".abcmesh",".stmesh",".tex",".sbnk",".bnk",".pck",".spck",".vsrc",".mov",".mpci"])
@@ -467,7 +467,7 @@ def extractPakFromFileInfo(fileInfoList,pakPath,outDir,extractDependencies = Tru
 								mdfFile.read(tempStream,version)
 								dependencySet.update(getMDFReferences(mdfFile))
 						except:
-							print("Failed to read dependencies from {outPath}")
+							print(f"Failed to read dependencies from {outPath}")
 				os.makedirs(os.path.split(outPath)[0],exist_ok=True)
 				with open(outPath,"wb") as outFile:
 					outFile.write(fileData)
@@ -527,6 +527,99 @@ def extractFileList(filePathList,pakPath,outDir):
 	else:
 		raise Exception("Pak path does not exist.")
 
+
+class PakCacheStream:#Opens a stream to all pak files for fetching file data directly from the paks via their file paths
+	def __init__(self,libraryDir,gameName):
+		self.pakStreamList = []
+		self.decompressorZSTD = zstd.ZstdDecompressor()
+		extractInfoPath = os.path.join(libraryDir,f"ExtractInfo_{gameName}.json")
+		pakCachePath = os.path.join(libraryDir,f"PakCache_{gameName}.pakcache")	
+		if not os.path.isfile(extractInfoPath):
+			raise Exception("Extract info path is invalid")
+		extractInfo = None
+		try:
+			with open(extractInfoPath,"r", encoding ="utf-8") as file:
+				#extractInfoDict["exePath"] = exePath
+				#extractInfoDict["exeDate"] = os.path.getmtime(exePath)
+				#extractInfoDict["exeCRC"] = getFileCRC(exePath)
+				#extractInfoDict["extractPath"] = newDirPath
+				extractInfo = json.load(file)
+				
+		except:
+			print(f"Failed to load {extractInfoPath}")
+		
+		
+		if extractInfo != None:
+			
+			
+			#extractDir = extractInfo["extractPath"]
+			exePath = extractInfo["exePath"]
+			platform = extractInfo["platform"]
+			if not os.path.isfile(exePath):
+				raise Exception("EXE path is invalid")
+			modifiedTime = os.path.getmtime(exePath)
+			lastModifiedTime = extractInfo["exeDate"]
+			
+			if not os.path.isfile(pakCachePath):
+				pakPriorityList = scanForPakFiles(os.path.split(exePath)[0])
+				if len(pakPriorityList) != 0:
+					pakPriorityList.reverse()#Reverse the list so that the newest paths are cached first
+					createPakCacheFile(pakPriorityList,pakCachePath)
+			
+			if modifiedTime > lastModifiedTime:
+				#Check CRC to verify it changed
+				exeCRC = getFileCRC(exePath)
+				if exeCRC != extractInfo["exeCRC"]:
+					extractInfo["exeDate"] = modifiedTime
+					extractInfo["exeCRC"] = exeCRC
+					
+					print("Game updated. Regenerating pak cache.")
+					pakPriorityList = scanForPakFiles(os.path.split(exePath)[0])
+					if len(pakPriorityList) != 0:
+						pakPriorityList.reverse()#Reverse the list so that the newest paths are cached first
+						createPakCacheFile(pakPriorityList,pakCachePath)
+						with open(extractInfoPath,"w", encoding ="utf-8") as outFile:
+							json.dump(extractInfo,outFile)
+							print(f"Wrote {os.path.split(extractInfoPath)[1]}")
+
+					else:
+						raise Exception("No pak files were found in game directory. Cannot continue.")
+			
+			self.pakPathList,self.lookupDict = readPakCache(pakCachePath)
+			for pakPath in self.pakPathList:
+				self.pakStreamList.append(open(pakPath,"rb"))
+		
+	def retrieveFileData(self,filePath):
+		fileData = None
+		#print(filePath)
+		lookupHash = pathToPakHash(filePath)
+		if lookupHash in self.lookupDict:
+			#print(f"Found {filePath}")
+			fileInfo = self.lookupDict[lookupHash]
+			pakIndex = fileInfo["pakIndex"]
+			pakStream = self.pakStreamList[pakIndex]
+			pakStream.seek(fileInfo["offset"])
+			fileData = pakStream.read(fileInfo["compressedSize"])
+			
+			if fileInfo["encryptionType"] > 0:
+				#print(f"Encrypted file ({fileInfo.encryptionType}):{filePath}]")
+				fileData = decryptResource(fileData)
+			
+			match fileInfo["compressionType"]:
+				case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
+					#print("Deflate Compression")
+					#fileData = decompressorDeflate.decompress(fileData)
+					fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
+				case CompressionTypes.COMPRESSION_TYPE_ZSTD:
+					#print("ZSTD Compression")
+					fileData = self.decompressorZSTD.decompress(fileData)
+			#print(f"Returned {len(fileData)} bytes")
+			return fileData
+			
+	
+	def closeStreams(self):
+		for stream in self.pakStreamList:
+			stream.close()
 #Generator function that iterates over all files in all paks, used for pulling strings from files
 def debugDataIterator(pakPathList):
 	extractCount = 0
@@ -795,11 +888,16 @@ def createPakPatch(pakDir,outPath):
 				except:
 					extension = None
 				if extension != None and extension.lower() not in fileTypeBlackList:
+					
 					fullPath = os.path.join(root,file)
 					assetPath = os.path.relpath(fullPath,start=pakDir).replace(os.path.sep,"/")
 					pakEntry = PakTOCEntry()
 					pakEntry.hashNameLower = hashUTF16(assetPath.lower())
 					pakEntry.hashNameUpper = hashUTF16(assetPath.upper())
+					
+					if file.startswith("#UNKN#"):#Override hashes for unknown files
+						pakEntry.hashNameLower = int(file.split("#UNKN#")[1].split("-")[0])
+						pakEntry.hashNameUpper = int(file.split("-")[1].split(".")[0])
 					
 					with open(os.path.join(root,file),"rb") as file:
 						pakEntry.fileData = file.read()
@@ -818,6 +916,9 @@ def createPakPatch(pakDir,outPath):
 		pakFile.header.minorVersion = 0
 		pakFile.header.entryCount = len(pakFile.toc.entryList)
 		
+		#Sort pak entries by hash to keep repacking unknown files consistent
+		pakFile.toc.entryList.sort(key = lambda entry: entry.hashNameLower)
+		
 		#Calculate offsets
 		currentOffset = 16 + (48 * len(pakFile.toc.entryList))
 		for entry in pakFile.toc.entryList:
@@ -827,3 +928,385 @@ def createPakPatch(pakDir,outPath):
 		print(f"Wrote {outPath}")
 	else:
 		print("ERROR: No natives folder in the provided directory. Nothing to pack.")
+
+def getFileMagic(stream):
+	magic = -1
+	magic2 = -1
+	stream.seek(0)
+	try:
+		magic = read_uint(stream)
+		magic2 = read_uint(stream)#Some files have the version first, then magic
+	except:
+		pass
+	stream.seek(0)
+	return (magic,magic2)
+
+RSZ_MAGIC_SET = {
+	5129043,#SCN
+	5395285,#USR
+	4343376,#PFB
+	5919570,#RSZ
+	}
+MDF_MAGIC = 4605005#MDF
+
+KNOWN_MAGIC_DICT ={
+	
+	5395285:"user",
+	#4605011:"csdf",
+	850041:"gui",
+	1196641607:"msg",
+	4605005:"mdf2",
+	4605011:"mmtr",
+	5784916:"tex",
+	1330201423:"ocioc",
+	1480938578:"rtex",
+	#1346980931:"ucurve",
+	5457225:"ies",
+	1213416781:"mesh",
+	1413891155:"sdftex",
+	1279870531:"cfil",
+	#0:"rtmr",
+	1380013139:"star",
+	1280262989:"mcol",
+	541934162:"rmesh",
+	5129043:"scn",
+	1818389620:"tmlbld",
+	4998992:"poglst",
+	4673360:"pog",
+	1346980931:"clip",
+	1413697613:"mpci",
+	4343376:"pfb",
+	3295086312:"prb",
+	1112690766:"lprb",
+	#0:"gpbf",
+	1936614250:"jcns",
+	846096483:"chain2",
+	1802396269:"motbank",
+	1953721453:"motlist",
+	1885433194:"jmap",
+	1734634602:"jointlodgroup",
+	544501613:"mot",
+	1852599155:"fbxskel",
+	1347636291:"clsp",
+	1330398023:"gpuc",
+	1381320275:"sfur",
+	1735943530:"jntexprgraph",
+	#0:"vmap",
+	#0:"zivacomb",
+	1096173914:"ziva",
+	4476748:"lod",
+	5001030:"fol",
+	944591955:"stmesh",
+	1497648962:"rbs",
+	#1497648962:"rdd",
+	172774471:"gtl",
+	541476931:"chf",
+	538986056:"hf",
+	5000519:"gml",
+	1145983559:"grnd",
+	1920493157:"efx",
+	#3:"efcsv",
+	1212959046:"abcmesh",
+	1431720750:"uvs",
+	1413699654:"fxct",
+	1919772005:"eem",
+	1918989941:"uvar",
+	#4605011:"vsdf",
+	1229738838:"vsdflist",
+	1380991815:"gcp",
+	1195787079:"gcf",
+	1498698567:"gsty",
+	1414288198:"fslt",
+	1330004550:"oft",
+	1414415945:"ift",
+	1447904594:"mov",
+	1128746052:"dlgcf",
+	1279740996:"dlglist",
+	4672580:"dlg",
+	#1346980931:"dlgtml",
+	1414940738:"fsmv2",
+	1280262994:"rcol",
+	846423668:"tmlfsm2",
+	1953721443:"mcamlist",
+	1347570755:"clrp",
+	1413829443:"cset",
+	1162104902:"fpolygon",
+	1262633795:"ccbk",
+	845966185:"iklookat2",
+	1347242305:"ainvm",
+	#1347242305:"ainvmmgr",
+	1685547107:"chainwnd",
+	5460819:"sss",
+	1835098989:"motcam",
+	1802396259:"mcambank",
+	1936485225:"ikls",
+	1819110249:"ikmulti",
+	1936092009:"ikfs",
+	2053925737:"iklizard",
+	1802068582:"fbik",
+	1684564841:"ikhd",
+	1735879529:"ikwagon",
+	845636972:"ikleg2",
+	1735554162:"retargetrig",
+	#1852599155:"skeleton",
+	1637975441:"ord",
+	2157998135:"rcf",
+	3524345696:"ncf",
+	1751347827:"vsrc",
+	5919570:"amix",
+	#5919570:"swms",
+	1936483189:"ucurvelist",
+	1145588546:"sbnk",
+	1263553345:"spck",
+	1095584065:"aimapattr",
+	1178944579:"cdef",
+	541476164:"def",
+	1179535686:"finf",
+	5461075:"sts",
+	1480938568:"htex",
+	1347375952:"psop",
+	#4605011:"sdf",
+	1179992647:"rcfg",
+	
+	} 
+
+#Common non game files that may be included in the pak
+extraPathList=[
+	"modinfo.ini",
+	"__MANIFEST/MANIFEST.TXT",
+	"preview.png",
+	"preview.jpg",
+	"showcase.png",
+	"showcase.jpg",]
+
+def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
+	#This will miss new paths with language and platform extensions, but I don't think it's worth hashing orders of magnitude more paths to find them.
+	#It's unlikely that there'll be unknown paths with those anyway
+	print(f"Extracting {pakPath}")
+	print(f"Output Directory: {outDir}")
+	extractInfoPath = os.path.join(libDir,f"ExtractInfo_{gameName}.json")
+	if os.path.isfile(extractInfoPath):
+		try:
+			with open(extractInfoPath,"r", encoding ="utf-8") as file:
+				extractInfo = json.load(file)
+				platform = extractInfo["platform"]
+		except:
+			raise Exception(f"Failed to load {extractInfoPath}")
+		
+	else:
+		raise Exception("Extract paths are not set.")
+		return {'CANCELLED'}
+	
+	gameInfoPath = os.path.join(libDir,f"GameInfo_{gameName}.json")
+	if not os.path.isfile(gameInfoPath):
+		raise Exception(f"GameInfo_{gameName}.json is missing.")
+	catalogPath = os.path.join(libDir,f"REAssetCatalog_{gameName}.tsv")
+	print(f"Catalog Path: {catalogPath}")
+	
+	if not os.path.isfile(catalogPath):
+		raise Exception(f"GameInfo_{gameName}.json is missing.")
+	gameInfo = loadGameInfo(gameInfoPath)
+	filePathList = []
+	filePathList.extend(extraPathList)
+	for row in [entry for entry in loadREAssetCatalogFile(catalogPath)]:
+		nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION","999"), platform)
+		filePathList.append(nativesPath)
+		#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
+		if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
+			#No need to verify if the path exists, that will be done when they're hashed
+			streamingPath = nativesPath.replace(f"natives/{platform}/",f"natives/{platform}/streaming/")
+			#print(streamingPath)
+			filePathList.append(streamingPath)
+	decompressorZSTD = zstd.ZstdDecompressor()
+	#decompressorDeflate = zlib.decompressobj(wbits=-zlib.MAX_WBITS)
+	extractedFilesSet = set()
+	
+	mdfVersion = int(gameInfo["fileVersionDict"].get("MDF2_VERSION","999"))#For reading texture paths from mdfs
+	magicExtensionDict = dict()
+	for magic,extension in KNOWN_MAGIC_DICT.items():
+		magicExtensionDict[magic] = f".{extension}."+gameInfo["fileVersionDict"].get(f"{extension.upper()}_VERSION","999")
+	
+	#print(magicExtensionDict)
+	scannedPathSet = set()
+	unknownCount = 0
+	
+	#Scan all files in provided loose files directory for paths
+	if looseFileDir != "":
+		if os.path.isdir(looseFileDir):
+			print(f"Scanning files in {looseFileDir}")
+			for root, dirs, files in os.walk(looseFileDir):
+				for file in files:
+					with open(os.path.join(root,file),"rb") as stream:
+						magic,magic2 = getFileMagic(stream)
+						#magic2 is unused for now
+						
+						if magic == MDF_MAGIC:
+							try:
+								#print(f"MDF magic found: {filePath}")
+								mdfFile = MDFFile()
+								mdfFile.read(stream,mdfVersion)
+								scannedPathSet.update(getMDFReferences(mdfFile))
+							except Exception as err:
+								print(f"Failed to read MDF dependencies from {os.path.join(root,file)}:{str(err)}")
+						elif magic in RSZ_MAGIC_SET:
+							try:
+								scannedPathSet.update(getRSZResourcePaths(stream))
+							except Exception as err:
+								print(f"Failed to read RSZ dependencies from {os.path.join(root,file)}:{str(err)}")
+			print(f"Found {len(scannedPathSet)} paths.")
+		else:
+			raise Exception("Invalid loose files directory.")
+	if os.path.isfile(pakPath):
+		lookupDict = getPakLookupTable(pakPath)
+		reverseLookupDict = dict()
+		print(f"Hashing {len(filePathList)} paths...")
+		for filePath in progressBar(filePathList, prefix = 'Progress:', suffix = 'Complete', length = 50):
+			lookupHash = pathToPakHash(filePath)
+			if lookupHash in lookupDict:
+				reverseLookupDict[lookupHash] = filePath
+		print(f"Extracting {len(reverseLookupDict)} known file paths...")
+		with open(pakPath,"rb") as pakStream:
+			for lookupHash in progressBar(lookupDict, prefix = 'Progress:', suffix = 'Complete', length = 50):
+				entry = lookupDict[lookupHash]
+				filePath = reverseLookupDict.get(lookupHash,None)
+				#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
+				pakStream.seek(entry.offset)
+				size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
+				fileData = pakStream.read(size)
+				
+				if entry.encryptionType > 0:
+					#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
+					fileData = decryptResource(fileData)
+				
+				match entry.compressionType:
+					case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
+						#print("Deflate Compression")
+						#fileData = decompressorDeflate.decompress(fileData)
+						fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
+					case CompressionTypes.COMPRESSION_TYPE_ZSTD:
+						#print("ZSTD Compression")
+						fileData = decompressorZSTD.decompress(fileData)
+				
+				
+				with BytesIO(fileData) as tempStream:
+					magic,magic2 = getFileMagic(tempStream)
+					#magic2 is unused for now
+					
+					if magic == MDF_MAGIC:
+						try:
+							#print(f"MDF magic found: {filePath}")
+							mdfFile = MDFFile()
+							mdfFile.read(tempStream,mdfVersion)
+							scannedPathSet.update(getMDFReferences(mdfFile))
+						except Exception as err:
+							print(f"Failed to read MDF dependencies from {filePath if filePath != None else str(lookupHash)} (Magic:{magic}):{str(err)}")
+					elif magic in RSZ_MAGIC_SET:
+						try:
+							scannedPathSet.update(getRSZResourcePaths(tempStream))
+						except Exception as err:
+							print(f"Failed to read RSZ dependencies from {filePath if filePath != None else str(lookupHash)}:{str(err)}")
+
+				if filePath != None:
+					try:
+						outPath = os.path.join(outDir,filePath.replace("/",os.sep))
+						if len(outPath) > 260:
+							print(f"WARNING: Path exceeds Windows size limit of 260 characters!\n{outPath}")
+						os.makedirs(os.path.split(outPath)[0],exist_ok=True)
+						with open(outPath,"wb") as outFile:
+							outFile.write(fileData)
+							extractedFilesSet.add(lookupHash)
+					except Exception as err:
+						print(f"Failed to extract {outPath}:{str(err)}")
+					#print(f"Extracted {outPath}")
+			
+			#Once all known files have been extracted, scan for dependencies in remaining unknown files
+			skippedHashSet = set(lookupDict.keys()) - extractedFilesSet	
+			if len(skippedHashSet) != 0:
+				print(f"{len(skippedHashSet)} unknown entries.")
+				
+				newPathSet = set()
+				
+				for path in scannedPathSet:
+					nativesPath = f"natives/{platform}/"+path.replace("@","")+"."+gameInfo["fileVersionDict"].get(f"{os.path.splitext(path)[1][1::].upper()}_VERSION","999")
+					#print(nativesPath)
+					lookupHash = pathToPakHash(nativesPath)
+					if lookupHash in skippedHashSet:
+						reverseLookupDict[lookupHash] = nativesPath
+						newPathSet.add(nativesPath)
+						if os.path.splitext(nativesPath)[1] in STREAMING_FILE_TYPE_SET:
+							streamingPath = getStreamingPath(filePath,platform,lookupDict)
+							if streamingPath != None:
+								#print("Found streamed path")
+								lookupHash = pathToPakHash(streamingPath)
+								if lookupHash in skippedHashSet:
+									reverseLookupDict[lookupHash] = streamingPath
+									newPathSet.add(streamingPath)
+					#print(path)
+				print(f"New files found: {len(newPathSet)}")
+				for path in newPathSet:
+					print(path)
+					
+				
+				print("Extracting remaining files...")
+	
+				for lookupHash in progressBar(skippedHashSet, prefix = 'Progress:', suffix = 'Complete', length = 50):
+					if lookupHash in lookupDict:
+						entry = lookupDict[lookupHash]
+						filePath = reverseLookupDict.get(lookupHash,None)
+						#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
+						pakStream.seek(entry.offset)
+						size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
+						fileData = pakStream.read(size)
+						
+						if entry.encryptionType > 0:
+							#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
+							fileData = decryptResource(fileData)
+						
+						match entry.compressionType:
+							case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
+								#print("Deflate Compression")
+								#fileData = decompressorDeflate.decompress(fileData)
+								fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
+							case CompressionTypes.COMPRESSION_TYPE_ZSTD:
+								#print("ZSTD Compression")
+								fileData = decompressorZSTD.decompress(fileData)
+						
+						if filePath != None:
+							try:
+								outPath = os.path.join(outDir,filePath.replace("/",os.sep))
+								if len(outPath) > 260:
+									print(f"WARNING: Path exceeds Windows size limit of 260 characters!\n{outPath}")
+								os.makedirs(os.path.split(outPath)[0],exist_ok=True)
+								with open(outPath,"wb") as outFile:
+									outFile.write(fileData)
+									extractedFilesSet.add(lookupHash)
+							except Exception as err:
+								print(f"Failed to extract {outPath}:{str(err)}")
+						else:
+							with BytesIO(fileData) as tempStream:
+								magic,magic2 = getFileMagic(tempStream)
+							
+							if magic in magicExtensionDict:
+								extension = magicExtensionDict[magic]
+							elif magic2 in magicExtensionDict:
+								extension = magicExtensionDict[magic2]
+							else:
+								extension = ".bin.999"
+							try:
+								outPath = os.path.join(outDir,"UNKNOWN",f"#UNKN#{entry.hashNameLower}-{entry.hashNameUpper}{extension}")
+								if len(outPath) > 260:
+									print(f"WARNING: Path exceeds Windows size limit of 260 characters!\n{outPath}")
+								os.makedirs(os.path.split(outPath)[0],exist_ok=True)
+								
+								with open(outPath,"wb") as outFile:
+									outFile.write(fileData)
+									unknownCount += 1
+									extractedFilesSet.add(lookupHash)
+							except Exception as err:
+								print(f"Failed to extract {outPath}:{str(err)}")
+				print(f"Pak extracted to {outDir}")
+				print(f"All files extracted, {unknownCount} unknown paths.")
+				
+				
+	else:
+		raise Exception("Pak path does not exist.")

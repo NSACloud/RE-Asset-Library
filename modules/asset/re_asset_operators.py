@@ -196,6 +196,7 @@ def zipLibrary(blendDir,gameName):
 	thumbnailDir = os.path.join(blendDir,f"REAssetLibrary_{gameName}_thumbnails")
 	print(f"Thumbnail Directory:{thumbnailDir}")
 	materialCompendiumPath = os.path.join(blendDir,f"MaterialCompendium_{gameName}.json")
+	crcCompendiumPath = os.path.join(blendDir,f"CRCCompendium_{gameName}.json")
 	
 	
 	outputPath = os.path.join(blendDir,f"{gameName}.reassetlib")
@@ -234,6 +235,8 @@ def zipLibrary(blendDir,gameName):
 			zf.write(packageInfoPath, arcname=f"{gameName}\packageInfo_{gameName}.json")
 			if os.path.isfile(materialCompendiumPath):
 				zf.write(materialCompendiumPath, arcname=f"{gameName}\MaterialCompendium_{gameName}.json")
+				if os.path.isfile(crcCompendiumPath):
+					zf.write(crcCompendiumPath, arcname=f"{gameName}\CRCCompendium_{gameName}.json")
 			for file in os.scandir(thumbnailDir):
 		        
 				if file.name.endswith(IMAGE_FORMAT):
@@ -1061,6 +1064,7 @@ class WM_OT_ExportCatalogDiff(Operator):
 		assetEntryList = loadREAssetCatalogFile(catalogPath,set())
 		print(f"New Asset Count:{len(assetEntryList)}")
 		changeCount = 0
+		addCount = 0
 		with StringIO() as stream:
 			stream.write("File Path\tDisplay Name\tCategory (Forward Slash Separated)\tTags (Comma Separated)\tPlatform Extension\tLanguage Extension\n")#Write header line
 			#Check new asset list for differences, write asset ent
@@ -1081,7 +1085,11 @@ class WM_OT_ExportCatalogDiff(Operator):
 					if oldAssetEntry["displayName"] != displayName or oldAssetEntry["category"] != category or oldAssetEntry["tagString"] != tagString:
 						stream.write(f"{filePath}\t{displayName}\t{category}\t{tagString}\t{platExt}\t{langExt}\n")
 						changeCount += 1
+				else:
+					stream.write(f"{filePath}\t{displayName}\t{category}\t{tagString}\t{platExt}\t{langExt}\n")
+					addCount += 1
 			print(f"Change Count:{changeCount}")
+			print(f"Add Count:{addCount}")
 			if changeCount != 0:
 				with zipfile.ZipFile(diffZipPath, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
 				    zf.writestr(f"Diff_REAssetCatalog_{gameName}_{timestamp}.tsv", stream.getvalue())

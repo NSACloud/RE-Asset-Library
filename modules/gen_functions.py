@@ -1,10 +1,11 @@
 #Author: NSA Cloud
-#V5
+#V6
 import os
 import struct
 import glob
 from pathlib import Path
 import platform
+import subprocess
 #---General Functions---#
 os.system("color")#Enable console colors
 class textColors:
@@ -258,3 +259,11 @@ def resolvePath(pathString):
 		if not os.path.isfile(newPath):#Lower case the path in case the pak list is lowercased
 			newPath = newPath.lower()
 			return newPath
+		
+def openFolder(path):
+    if platform.system() == "Windows":
+        os.startfile(path)
+    elif platform.system() == "Darwin":
+        subprocess.Popen(["open", path])
+    else:
+        subprocess.Popen(["xdg-open", path])

@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.16 (8/27/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.17 (10/26/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 # PSA (READ THIS): 
 
 **The "RE Asset" tab is now located in the "RE Asset Library" menu inside the asset browser.**
@@ -191,6 +191,14 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.17 - 10/26/2025
+* Added support for unpacking mod pak files. Mod paks can be fully extracted and repacked even if they're using custom file paths.
+* Mod pak files can be extracted by dragging them onto the 3D view or by using the Extract Mod Pak button in the RE Mesh tab.
+* Added Batch RSZ CRC Updater button. This allows for the CRC values in user, pfb and scn files to be updated to allow a file to continue to work after a game update.
+This is experimental and may not work if there's been structural changes to files after an update.
+Only the SF6 library supports this feature at the moment, MH Wilds support will be added upon the next major game update.
+
 
 ### V0.16 - 8/27/2025
 * Added FBXSkel importing support to asset libaries.

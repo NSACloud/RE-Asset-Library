@@ -3,8 +3,10 @@ from zlib import crc32
 import os
 import csv
 import json
+
 from ..mdf.file_re_mdf import readMDF
 from ..hashing.mmh3.pymmh3 import hashUTF8
+
 #TODO move more functions from operators file into here
 
 
@@ -106,3 +108,6 @@ def generateMaterialCompendium(libraryDir,gameName):
 			print(f"Wrote {os.path.split(compendiumOutPath)[1]}")
 		print(f"{len(sortedDict)} shader entries written")	
 		#print(mdfFileList)
+		
+
+		
