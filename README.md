@@ -1,7 +1,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.17 (10/26/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.18 (12/15/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 # PSA (READ THIS): 
 
 **The "RE Asset" tab is now located in the "RE Asset Library" menu inside the asset browser.**
@@ -167,6 +167,13 @@ Choose the game and set the path to the natives\STM\ folder. (See above for refe
 > 
 > This will be fixed over time as I make updates.
 
+* **Why do some files not have thumbnails?**
+
+> Certain files may show as "MESH" in the library. These are usually meshlet based models.
+>
+> Support for these models is not yet complete and they don't import properly. Therefore making renders of these is skipped. 
+
+
 **For additional help, go here:**
 
 [Monster Hunter Modding Discord](https://discord.gg/gJwMdhK)
@@ -191,6 +198,14 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.18 - 12/15/2025
+* Added support for Pragmata.
+* Fixed issue where under certain circumstances, an installed asset library may not show up in the browser.
+* Greatly improved the speed of the MDF updater.
+* Updated structure of exported MDF files to be identical to vanilla files.
+* If the MDF updater is run without the game extract paths being set, it will now prompt to set them.
+* Minor bug fixes.
 
 ### V0.17 - 10/26/2025
 * Added support for unpacking mod pak files. Mod paks can be fully extracted and repacked even if they're using custom file paths.

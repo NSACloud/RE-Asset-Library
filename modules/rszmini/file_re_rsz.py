@@ -107,7 +107,7 @@ class RSZFile():
 		self.RSZUserDataInfoList = []
 		self.stringList = []#For writing user data
 		self.InstanceList = [None]
-	def short_read(self,file,RSZOffset = 0):#Read everything but the instances themselves
+	def short_read(self,file,RSZOffset = 0,game = "MHRise"):#Read everything but the instances themselves
 		self.RSZOffset = RSZOffset
 		debugprint("Reading RSZ Header")
 		self.Header.read(file)

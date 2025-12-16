@@ -81,7 +81,7 @@ class PakTOC():
 		
 		tocData = file.read(entrySize*header.entryCount)
 		
-		if header.feature == 8 or header.feature == 24:
+		if header.feature == 8 or header.feature == 24 or header.feature == 40:
 			if header.feature == 24:
 				file.seek(4,1)#Skip empty table, used in wilds HD texture pak
 			decryptStartTime = time.time()
@@ -150,10 +150,10 @@ class PakHeader():
 		self.fingerprint = read_uint(file)
 		
 		
-		if self.majorVersion != 2 and self.majorVersion != 4 or self.minorVersion != 0 and self.minorVersion != 1:
+		if self.majorVersion != 2 and self.majorVersion != 4 or self.minorVersion != 0 and self.minorVersion != 1 and self.minorVersion != 2:
 			raise Exception(f"Invalid Pak Version ({self.majorVersion}.{self.minorVersion}), expected 2.0, 4.0 & 4.1")
 			
-		if self.feature != 0 and self.feature != 8 and self.feature != 24:
+		if self.feature != 0 and self.feature != 8 and self.feature != 24 and self.feature != 40:
 			raise Exception(f"Unsupported Encryption Type ({self.feature})")
 			
 	def write(self,file):

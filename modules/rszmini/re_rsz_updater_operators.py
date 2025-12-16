@@ -84,6 +84,7 @@ class WM_OT_BatchRSZUpdater(Operator):
 	def draw(self,context):
 		layout = self.layout
 		if self.assetLib != "":
+			layout.label(icon = "ERROR",text="EXPERIMENTAL")
 			layout.label(text="Update RSZ (scn,pfb,user) files for the latest game version.")
 			layout.label(text="Note that this may not work if the file has had structural changes.")
 			layout.label(text="Be sure to check that it's working properly in game.")

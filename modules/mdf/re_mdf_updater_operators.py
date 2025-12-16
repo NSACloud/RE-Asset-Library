@@ -52,17 +52,29 @@ class WM_OT_BatchMDFUpdater(Operator):
 		
 		modDirectory = bpy.path.abspath(self.dirPath)
 		if os.path.isdir(modDirectory) and self.assetLib != "":
-			try: 
-				bpy.ops.wm.console_toggle()
-			except:
-				 pass
-			updateCount = batchUpdateMDFFiles(modDirectory=modDirectory,compendiumPath=self.assetLib,searchSubdirectories = self.searchSubdirectories,createBackups = self.createBackups)
-			try: 
-				bpy.ops.wm.console_toggle()
-			except:
-				 pass
-			showMessageBox(f"Updated {updateCount} MDF files.",title="MDF Updater")
-			self.report({"INFO"},"Finished updating MDF files.")
+			libPath = os.path.dirname(self.assetLib)
+			
+			
+			gameName = os.path.split(self.assetLib)[1].split("MaterialCompendium_")[1].split(".json")[0]
+			extractInfoPath = os.path.join(libPath,f"ExtractInfo_{gameName}.json")
+			blendPath = os.path.join(libPath,f"REAssetLibrary_{gameName}.blend")
+			print(f"Library path:{blendPath}")
+			if os.path.isfile(extractInfoPath):
+				try: 
+					bpy.ops.wm.console_toggle()
+				except:
+					 pass
+				updateCount = batchUpdateMDFFiles(modDirectory=modDirectory,compendiumPath=self.assetLib,searchSubdirectories = self.searchSubdirectories,createBackups = self.createBackups)
+				try: 
+					bpy.ops.wm.console_toggle()
+				except:
+					 pass
+				showMessageBox(f"Updated {updateCount} MDF files.",title="MDF Updater")
+				self.report({"INFO"},"Finished updating MDF files.")
+			else:#If extract paths aren't set, prompt to set them
+				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = blendPath)
+				self.report({"INFO"},"Cancelled MDF update. Run it again once extract paths are set.")
+				return {'CANCELLED'}
 		else:
 			showMessageBox(f"An asset library with MDF updater support must be chosen and a mod directory must be set.",title="MDF Updater")
 			return {'CANCELLED'}
@@ -106,17 +118,30 @@ class WM_OT_BlenderMDFUpdater(Operator):
 	def execute(self, context):
 		
 		if self.assetLib != "":
-			try: 
-				bpy.ops.wm.console_toggle()
-			except:
-				 pass
-			updateCount = batchUpdateMDFCollections(self.assetLib,bpy)
-			try: 
-				bpy.ops.wm.console_toggle()
-			except:
-				 pass
-			showMessageBox(f"Updated {updateCount} MDF collections.",title="MDF Updater")
-			self.report({"INFO"},"Finished updating MDF collections.")
+			libPath = os.path.dirname(self.assetLib)
+			
+			
+			gameName = os.path.split(self.assetLib)[1].split("MaterialCompendium_")[1].split(".json")[0]
+			extractInfoPath = os.path.join(libPath,f"ExtractInfo_{gameName}.json")
+			blendPath = os.path.join(libPath,f"REAssetLibrary_{gameName}.blend")
+			print(f"Library path:{blendPath}")
+			if os.path.isfile(extractInfoPath):
+				
+				try: 
+					bpy.ops.wm.console_toggle()
+				except:
+					 pass
+				updateCount = batchUpdateMDFCollections(self.assetLib,bpy)
+				try: 
+					bpy.ops.wm.console_toggle()
+				except:
+					 pass
+				showMessageBox(f"Updated {updateCount} MDF collections.",title="MDF Updater")
+				self.report({"INFO"},"Finished updating MDF collections.")
+			else:#If extract paths aren't set, prompt to set them
+				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = blendPath)
+				self.report({"INFO"},"Cancelled MDF update. Run it again once extract paths are set.")
+				return {'CANCELLED'}
 		else:
 			showMessageBox(f"An asset library with MDF updater support must be chosen.",title="MDF Updater")
 			return {'CANCELLED'}

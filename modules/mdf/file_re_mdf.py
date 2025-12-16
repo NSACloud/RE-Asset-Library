@@ -19,6 +19,8 @@ gameNameMDFVersionDict = {
 	40:"DD2",
 	#40:"DR",
 	45:"MHWILDS",
+	46:"ONI2",
+	51:"PRAG",
 	
 	"DMC5":10,
 	"RE2":10,
@@ -33,6 +35,8 @@ gameNameMDFVersionDict = {
 	"KG":40,
 	"DR":40,
 	"MHWILDS":45,
+	"ONI2":46,
+	"PRAG":51,
 	}
 def getMDFVersionToGameName(gameName):
 	return gameNameMDFVersionDict.get(gameName,-1)
@@ -51,7 +55,10 @@ class SIZEDATA():
 			self.MATERIAL_ENTRY_SIZE = 64
 		if version >= 31:
 			self.MATERIAL_ENTRY_SIZE = 100
+		if version >= 51:
+			self.MATERIAL_ENTRY_SIZE = 108
 c_int32 = ctypes.c_int32
+
 
 class MDFFlags_bits(ctypes.LittleEndianStructure):
 	_fields_ = 	[
@@ -65,7 +72,8 @@ class MDFFlags_bits(ctypes.LittleEndianStructure):
 					("AlphaMaskUsed",c_int32,1),
 					("ForcedTwoSideEnable",c_int32,1),
 					("TwoSideEnable",c_int32,1),
-					("TessFactor",c_int32,6),
+					("TransparentZPostPassEnable",c_int32,1),#New
+					("TessFactor",c_int32,5),
 					("PhongFactor",c_int32,8),
 					("RoughTransparentEnable",c_int32,1),
 					("ForcedAlphaTestEnable",c_int32,1),
@@ -84,6 +92,31 @@ class MDFFlags(ctypes.Union):
 	_fields_ =	[
 					("flagValues",    MDFFlags_bits ),
 					("asInt32", c_int32)
+				]
+
+class MDFFlagsB_bits(ctypes.LittleEndianStructure):
+	_fields_ = 	[
+					#New
+					("TransparentDistortionEnable",c_int32,1),
+					("AlphaUsed",c_int32,1),
+					("BakeTextureUseSecondaryUV",c_int32,1),
+					("ForwardPrepassEnabled",c_int32,1),
+					("ForcedAlphaTestEnableShadow",c_int32,1),
+					("TessellationZPrepassDisable",c_int32,1),
+					("DitheredLodTransitionEnable",c_int32,1),
+					("reserved0",c_int32,1),
+					("TransparentPriorityBias",c_int32,8),
+					("reserved1",c_int32,8),
+					("reserved2",c_int32,8),
+		
+				]
+	
+class MDFFlagsB(ctypes.Union):
+	
+	_anonymous_ = ("flagValues",)
+	_fields_ =	[
+					("flagValues",    MDFFlagsB_bits ),
+					("asInt32", c_int32)
 				]		
 def debugprint(string):
 	if DEBUG_MODE:
@@ -93,15 +126,14 @@ class MDFHeader():
 		self.magic = 4605005
 		self.version  = 1
 		self.materialCount = 0
-		self.reserved = 0
+		self.materialFlags = 0
 	def read(self,file):
 		self.magic = read_uint(file)
 		if self.magic != 4605005:
 			raise Exception("File is not an MDF file.")
 		self.version = read_ushort(file)
 		self.materialCount = read_ushort(file)
-		file.seek(8,1)
-		#self.reserved = read_uint64(file)
+		self.materialFlags = read_uint64(file)
 	def read_fast(self,file):
 		file.seek(6,1)
 		"""
@@ -117,8 +149,7 @@ class MDFHeader():
 		write_uint(file,self.magic)
 		write_ushort(file,self.version)
 		write_ushort(file,self.materialCount)
-		file.seek(8,1)
-		#write_uint64(file,self.reserved)
+		write_uint64(file,self.materialFlags)
 	def __str__(self):
 		return str(self.__class__) + ": " + str(self.__dict__)
 
@@ -131,7 +162,9 @@ class Property():
 		self.propDataOffset = 0
 		self.propName = "MDFProp"
 		self.propValue = []
+		
 		self.padding = 0#To account for SF6's weird spacing between mmtrs properties
+		self.frontPadding = 0
 	def read(self,file,matPropertyDataOffset,version):
 		self.propNameOffset = read_uint64(file)
 		self.unicodeMMH3Hash = read_uint(file)
@@ -249,6 +282,7 @@ class GPBFEntry():
 
 class Material():
 	def __init__(self):
+		self.hideInGame = False#For skipping hash calculation
 		self.matNameOffset = 0
 		self.matNameHash = 0
 		self.propBlockSize = 0
@@ -256,18 +290,22 @@ class Material():
 		self.textureCount = 0
 		self.GPBFBufferNameCount = 0
 		self.GPBFBufferPathCount = 0
+		self.bakeTextureArraySize = 0#SF6 and newer
 		self.shaderType = 0
-		self.ver32Unkn0 = 0		
+		self.ver32Unkn0 = -1#Unused, kept for legacy support
 		self.flags = MDFFlags()
-		self.ver32Unkn1 = 0
-		self.ver32Unkn2 = 0
+		self.flagsB = MDFFlagsB()#SF6 and newer
+		self.shaderLODNum = 0#SF6 and newer
+		self.ver32Unkn1 = -1#Unused, kept for legacy support
+		self.ver32Unkn2 = -1#Unused, kept for legacy support
+		self.ver51UnknOffset = 0#Pragmata demo, unkn struct pointer
 		self.propHeadersOffset = 0
 		self.texHeadersOffset = 0
 		self.GPUBufferOffset = 0
 		self.propDataOffset = 0
 		self.mmtrPathOffset = 0
-		self.ver32MMTRSDataOffset = 0#Actually version 31 but sf6 support was added retroactively
-		self.ver32Unkn4 = 0
+		self.mmtrsDataOffset = 0#SF6 and newer
+		self.ver32Unkn4 = -1#Unused, kept for legacy support
 		self.materialName = ""
 		self.mmtrPath = ""
 		self.textureList = []
@@ -289,19 +327,20 @@ class Material():
 		if version >= 19:
 			self.GPBFBufferNameCount = read_int(file)
 			self.GPBFBufferPathCount = read_int(file)
+		if version >= 31:
+			self.bakeTextureArraySize = read_int(file)
 		self.shaderType = read_int(file)
 		debugprint("shaderType:"+str(self.shaderType))
 		if version >= 31:
-			self.ver32Unkn0 = read_int(file)
-			debugprint("ver32Unkn0:"+str(self.ver32Unkn0))
-		self.flags.asInt32 = read_int(file)
-			
-		debugprint("flags:"+str(self.flags.asInt32))
-		if version >= 31:
-			self.ver32Unkn1 = read_int(file)
-			debugprint("ver32Unkn1:"+str(self.ver32Unkn1))
-			self.ver32Unkn2 = read_int(file)
-			debugprint("ver32Unkn2:"+str(self.ver32Unkn2))
+			self.flags.asInt32 = read_int(file)
+			self.flagsB.asInt32 = read_int(file)
+			self.shaderLODNum = read_int(file)
+		else:
+			self.flags.asInt32 = read_int(file)
+		#debugprint("flags:"+str(self.flags.asInt32))
+		
+		if version >= 51:
+			self.ver51UnknOffset = read_uint64(file)
 		self.propHeadersOffset = read_uint64(file)
 		self.texHeadersOffset = read_uint64(file)
 		if version >= 19:
@@ -309,11 +348,10 @@ class Material():
 		self.propDataOffset = read_uint64(file)
 		self.mmtrPathOffset = read_uint64(file)
 		if version >= 31:
-			self.ver32MMTRSDataOffset = read_int(file)
-			self.ver32Unkn4 = read_int(file)
+			self.mmtrsDataOffset = read_uint64(file)
 		currentPos = file.tell()
-		if self.ver32MMTRSDataOffset != 0:
-			file.seek(self.ver32MMTRSDataOffset)
+		if self.mmtrsDataOffset != 0:
+			file.seek(self.mmtrsDataOffset)
 			self.mmtrsData = MMTRSData()
 			self.mmtrsData.read(file)
 		file.seek(self.matNameOffset)
@@ -345,17 +383,23 @@ class Material():
 		file.seek(self.propHeadersOffset)
 		self.propertyList = []
 		#Get padding size of properties for SF6
-		lastPropEndPos = 0
 		for i in range(0,self.propertyCount):
-			
 			propertyEntry = Property()
 			propertyEntry.read(file,self.propDataOffset,version)
-			propertyEntry.padding = propertyEntry.propDataOffset - lastPropEndPos
-			#print(f"{propertyEntry.propName} - {propertyEntry.padding}")
-			lastPropEndPos = propertyEntry.propDataOffset + 4*(propertyEntry.paramCount)
-			
-			debugprint(propertyEntry)
+			#debugprint(propertyEntry)
 			self.propertyList.append(propertyEntry)
+		#print(self.materialName)
+		for i in range(0,self.propertyCount):#Loop through properties again to determine padding amount for each property
+			
+			propertyEntry = self.propertyList[i]
+			if i == 0:
+				if propertyEntry.propDataOffset != 0:
+					propertyEntry.frontPadding = propertyEntry.propDataOffset
+			if i + 1 < self.propertyCount:
+				propertyEntry.padding = self.propertyList[i+1].propDataOffset - (propertyEntry.propDataOffset+(propertyEntry.paramCount*4))
+			else:#Last property, get padding amount from block size
+				propertyEntry.padding = self.propBlockSize - (propertyEntry.propDataOffset+(propertyEntry.paramCount*4))
+			#print(f"\tProperty {i} padding amount: {propertyEntry.padding}")
 		file.seek(currentPos)
 		debugprint(self)
 	def read_fast(self,file,version):
@@ -368,6 +412,8 @@ class Material():
 		file.seek(24,1)
 		if version >= 31:
 			file.seek(12,1)
+		if version >= 51:
+			file.seek(8,1)
 		#self.flags.read(file)
 		#self.shaderType = read_int(file)
 		#self.propHeadersOffset = read_uint64(file)
@@ -409,14 +455,20 @@ class Material():
 		if version >= 19:
 			write_int(file,self.GPBFBufferNameCount)
 			write_int(file,self.GPBFBufferPathCount)
+		if version >= 31:
+			write_int(file, self.bakeTextureArraySize)
 		write_int(file, self.shaderType)
-		if version >= 31:
-			write_int(file, self.ver32Unkn0)
 		
-		write_int(file,self.flags.asInt32)
+		
+		
 		if version >= 31:
-			write_int(file, self.ver32Unkn1)
-			write_int(file, self.ver32Unkn2)
+			write_int(file,self.flags.asInt32)
+			write_int(file,self.flagsB.asInt32)
+			write_int(file, self.shaderLODNum)
+		else:
+			write_int(file,self.flags.asInt32)
+		if version >= 51:
+			write_uint64(file, self.ver51UnknOffset)
 		write_uint64(file, self.propHeadersOffset)
 		write_uint64(file, self.texHeadersOffset)
 		if version >= 19:
@@ -424,8 +476,7 @@ class Material():
 		write_uint64(file, self.propDataOffset)
 		write_uint64(file, self.mmtrPathOffset)
 		if version >= 31:
-			write_int(file, self.ver32MMTRSDataOffset)#Write mmtrs data later
-			write_int(file, self.ver32Unkn4)
+			write_uint64(file, self.mmtrsDataOffset)#Write mmtrs data later
 	def __str__(self):
 		return str(self.__class__) + ": " + str(self.__dict__)
 		
@@ -478,25 +529,32 @@ class MDFFile():
 			textureEntriesSize += len(material.textureList) * self.sizeData.TEXTURE_ENTRY_SIZE
 			propertyEntriesSize += len(material.propertyList) * self.sizeData.PROPERTY_ENTRY_SIZE
 			gpbfEntriesSize += len(material.gpbfBufferNameList) * 2 * self.sizeData.GPBF_ENTRY_SIZE
-			material.matNameHash = hashUTF16(material.materialName)
+			if material.hideInGame:
+				material.matNameHash = 0
+			else:
+				material.matNameHash = hashUTF16(material.materialName)
+			
 			material.propBlockSize = 0
 			material.textureCount = len(material.textureList)
 			material.propertyCount = len(material.propertyList)
 			currentPropOffset = 0
-			
+			if len(material.propertyList) >= 1:
+				currentPropOffset += material.propertyList[0].frontPadding
+				
 			propHeaderOffsetList.append(currentPropHeaderOffset)
 			currentPropHeaderOffset += material.propertyCount * self.sizeData.PROPERTY_ENTRY_SIZE
 			
 			texHeaderOffsetList.append(currentTexHeaderOffset)
 			currentTexHeaderOffset += material.textureCount * self.sizeData.TEXTURE_ENTRY_SIZE
 			for prop in material.propertyList:
-				currentPropSize = len(list(prop.propValue))*self.sizeData.PROPERTY_VALUE_SIZE
-				prop.propDataOffset = currentPropOffset + prop.padding
-				currentPropOffset += currentPropSize + prop.padding
 				prop.paramCount = len(list(prop.propValue))
+				currentPropSize = prop.paramCount*self.sizeData.PROPERTY_VALUE_SIZE
+				prop.propDataOffset = currentPropOffset
+				currentPropOffset += currentPropSize + prop.padding
+				
 				prop.asciiMMH3Hash = hashUTF8(prop.propName)
 				prop.unicodeMMH3Hash = hashUTF16(prop.propName)
-			material.propBlockSize = currentPropOffset + getPaddingAmount(currentPropOffset, 16)
+			material.propBlockSize = currentPropOffset
 			propDataBlockOffsetList.append(currentPropDataBlockOffset)
 			currentPropDataBlockOffset += material.propBlockSize
 			for texture in material.textureList:
@@ -513,14 +571,22 @@ class MDFFile():
 		#Get string offsets
 		currentStringOffset = stringTableStartOffset
 		#Get all material names and mmtr paths first
+		mmtrPathOffsetDict = {}
 		for material in self.materialList:
 			material.matNameOffset = currentStringOffset
 			self.stringList.append(material.materialName)
 			currentStringOffset += len(material.materialName)*2+2
 			
-			material.mmtrPathOffset = currentStringOffset
-			self.stringList.append(material.mmtrPath)
-			currentStringOffset += len(material.mmtrPath)*2+2
+			if mmtrPathOffsetDict.get(material.mmtrPath,None) != None:
+				material.mmtrPathOffset = mmtrPathOffsetDict[material.mmtrPath]
+				self.stringList.append(material.mmtrPath)
+				currentStringOffset += len(material.mmtrPath)*2+2
+			else:
+				material.mmtrPathOffset = currentStringOffset
+				mmtrPathOffsetDict[material.mmtrPath] = currentStringOffset
+				#Serialize strings even if they'll be unused duplicates, this is the way the vanilla files are
+				self.stringList.append(material.mmtrPath)
+				currentStringOffset += len(material.mmtrPath)*2+2
 		#Get texture types and paths next
 		textureOffsetDict = {}#Property names have to share offsets or the game will crash
 		
@@ -528,6 +594,9 @@ class MDFFile():
 			for texture in material.textureList:
 				if textureOffsetDict.get(texture.textureType,None) != None:
 					texture.textureTypeOffset = textureOffsetDict[texture.textureType]
+					#Serialize strings even if they'll be unused duplicates, this is the way the vanilla files are
+					self.stringList.append(texture.textureType)
+					currentStringOffset += len(texture.textureType)*2+2
 				else:
 					textureOffsetDict[texture.textureType] = currentStringOffset
 					texture.textureTypeOffset = currentStringOffset
@@ -536,6 +605,9 @@ class MDFFile():
 				
 				if textureOffsetDict.get(texture.texturePath,None) != None:
 					texture.texturePathOffset = textureOffsetDict[texture.texturePath]
+					#Serialize strings even if they'll be unused duplicates, this is the way the vanilla files are
+					self.stringList.append(texture.texturePath)
+					currentStringOffset += len(texture.texturePath)*2+2
 				else:
 					textureOffsetDict[texture.texturePath] = currentStringOffset
 					texture.texturePathOffset = currentStringOffset
@@ -547,9 +619,12 @@ class MDFFile():
 			for prop in material.propertyList:
 				if propNameOffsetDict.get(prop.propName,None) != None:
 					prop.propNameOffset = propNameOffsetDict[prop.propName]
+					self.stringList.append(prop.propName)
+					currentStringOffset += len(prop.propName)*2+2
 				else:
 					prop.propNameOffset = currentStringOffset
 					propNameOffsetDict[prop.propName] = currentStringOffset
+					#Serialize strings even if they'll be unused duplicates, this is the way the vanilla files are
 					self.stringList.append(prop.propName)
 					currentStringOffset += len(prop.propName)*2+2
 		if gpbfEntriesSize != 0:
@@ -559,29 +634,40 @@ class MDFFile():
 				material.GPBFBufferPathCount = material.GPBFBufferNameCount
 				material.GPUBufferOffset = currentGPBFOffset
 				currentGPBFOffset += ((material.GPBFBufferNameCount*2) * self.sizeData.GPBF_ENTRY_SIZE)
-				for entry in material.gpbfBufferNameList:
+				for index, entry in enumerate(material.gpbfBufferNameList):
 					entry.nameUTF16Hash = hashUTF16(entry.name)
 					entry.nameUTF8Hash = hashUTF8(entry.name)
 					if gpbfNameOffsetDict.get(entry.name,None) != None:
 						entry.nameOffset = gpbfNameOffsetDict[entry.name]
+						#Serialize strings even if they'll be unused duplicates, this is the way the vanilla files are
+						self.stringList.append(entry.name)
+						currentStringOffset += len(entry.name)*2+2
 					else:
 						entry.nameOffset = currentStringOffset
 						gpbfNameOffsetDict[entry.name] = currentStringOffset
 						self.stringList.append(entry.name)
 						currentStringOffset += len(entry.name)*2+2
-				for entry in material.gpbfBufferPathList:
-					if gpbfNameOffsetDict.get(entry.name,None) != None:
-						entry.nameOffset = gpbfNameOffsetDict[entry.name]
+					
+					pathEntry = material.gpbfBufferPathList[index]
+					
+					if gpbfNameOffsetDict.get(pathEntry.name,None) != None:
+						pathEntry.nameOffset = gpbfNameOffsetDict[pathEntry.name]
+						#Serialize strings even if they'll be unused duplicates, this is the way the vanilla files are
+						self.stringList.append(pathEntry.name)
+						currentStringOffset += len(pathEntry.name)*2+2
 					else:
-						entry.nameOffset = currentStringOffset
-						gpbfNameOffsetDict[entry.name] = currentStringOffset
-						self.stringList.append(entry.name)
-						currentStringOffset += len(entry.name)*2+2
+						pathEntry.nameOffset = currentStringOffset
+						gpbfNameOffsetDict[pathEntry.name] = currentStringOffset
+						self.stringList.append(pathEntry.name)
+						currentStringOffset += len(pathEntry.name)*2+2
+
+					
 		#stringTableSize = list(stringOffsetDict.items())[-1][1] + len(list(stringOffsetDict.items())[-1][0])*2 +2
 		#stringTableSize = stringTableSize + getPaddingAmount(stringTableStartOffset+stringTableSize, 16)
 		
 		
-		propDataStartOffset = currentStringOffset + getPaddingAmount(currentStringOffset, 16)
+		propDataStartOffset = currentStringOffset# + getPaddingAmount(currentStringOffset, 16)
+		#Not padded
 
 		#Loop through materials again now that the offsets have been gathered
 		for index, material in enumerate(self.materialList):
@@ -595,7 +681,7 @@ class MDFFile():
 		currentMMTRSOffset = currentPropDataBlockOffset + propDataStartOffset
 		for material in self.materialList:
 			if material.mmtrsData != None:
-				material.ver32MMTRSDataOffset = currentMMTRSOffset
+				material.mmtrsDataOffset = currentMMTRSOffset
 				currentMMTRIndexListOffset =  currentMMTRSOffset + 8 * 8
 				material.mmtrsData.offsetList.clear()
 				for i in range(0,8):
@@ -609,18 +695,18 @@ class MDFFile():
 		self.Header.write(file)
 		#It would be more faster and more efficient to write everything to buffers instead of looping again for each entry type but this is fast enough so ¯\_(ツ)_/¯
 		#Loop to write material entries
-		#print("Writing Material Entries")
+		print("Writing Material Entries")
 		for material in self.materialList:
 			#print(material)
 			material.write(file,version)
 		#Loop to write texture entries
-		#print("Writing Texture Headers")
+		print("Writing Texture Headers")
 		for material in self.materialList:
 			file.seek(material.texHeadersOffset)
 			for texture in material.textureList:
 				texture.write(file,version)
 		#Loop to write property headers
-		#print("Writing Property Headers")
+		print("Writing Property Headers")
 		for material in self.materialList:
 			file.seek(material.propHeadersOffset)
 			for prop in material.propertyList:
@@ -632,7 +718,7 @@ class MDFFile():
 				material.gpbfBufferNameList[i].write(file)
 				material.gpbfBufferPathList[i].write(file)
 		#Write string table
-		#print("Writing Strings")
+		print("Writing Strings")
 		"""
 		for string in sorted(list(stringOffsetDict.items()),key = lambda item: item[1]):
 			write_unicode_string(file, string[0])
@@ -643,22 +729,23 @@ class MDFFile():
 		self.stringList = []
 		#Loop over materials one last time to write property values
 		
-		#print("Writing Property Values")
+		print("Writing Property Values")
 		for material in self.materialList:
 			for prop in material.propertyList:
 				file.seek(material.propDataOffset + prop.propDataOffset)
 				for value in list(prop.propValue):
 					write_float(file,value)
+				file.write(b'\x00'*prop.padding)
 					
 		
 		for material in self.materialList:
 			if material.mmtrsData != None:
-				file.seek(material.ver32MMTRSDataOffset)
+				file.seek(material.mmtrsDataOffset)
 				#print(material.mmtrsData)
 				material.mmtrsData.write(file)
 def readMDF(filepath):
 	#print(textColors.OKCYAN + "__________________________________\nMDF read started." + textColors.ENDC)
-	#print("Opening " + filepath)
+	print("Opening " + filepath)
 	try:  
 		file = open(filepath,"rb")
 	except:
@@ -694,7 +781,7 @@ def readMDFFast(filepath):
 	return mdfFile
 def writeMDF(mdfFile,filepath):
 	#print(textColors.OKCYAN + "__________________________________\nMDF write started." + textColors.ENDC)
-	#print("Opening " + filepath)
+	print("Opening " + filepath)
 	try:
 		file = open(filepath,"wb")
 	except:

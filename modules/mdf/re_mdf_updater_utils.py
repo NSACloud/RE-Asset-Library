@@ -3,10 +3,10 @@ import os
 import json
 
 from ..hashing.mmh3.pymmh3 import hashUTF8
-from ..pak.re_pak_utils import loadGameInfo,extractFilesFromPakCache
-
+from ..pak.re_pak_utils import loadGameInfo,extractFilesFromPakCache,PakCacheStream
+from io import BytesIO
 from shutil import copyfile
-from .file_re_mdf import readMDF,writeMDF,Property,TextureBinding
+from .file_re_mdf import readMDF,writeMDF,Property,TextureBinding,MDFFile
 def makeMDFBackup(mdfPath):
 	bakIndex = 0
 	bakPath = f"{mdfPath}.bak{bakIndex}"
@@ -18,19 +18,22 @@ def makeMDFBackup(mdfPath):
 			copyfile(mdfPath,bakPath)
 		except Exception as err:
 			print(f"Failed to create backup of {mdfPath} - {str(err)}")
-def getMaterialByHash(mdfPath,matNameHash):
+def getMaterialByHash(mdfData,matNameHash,version):
 	material = None
+	
 	try:
-		mdfFile = readMDF(mdfPath)
-		for mat in mdfFile.materialList:
-			if mat.matNameHash == matNameHash:
-				material = mat
-				#print("Found sample mat")
-				break
+		with BytesIO(mdfData) as tempStream:
+			mdfFile = MDFFile()
+			mdfFile.read(tempStream,version)
+			for mat in mdfFile.materialList:
+				if mat.matNameHash == matNameHash:
+					material = mat
+					#print("Found sample mat")
+					break
 	except Exception as err:
-		print(f"Failed to retrieve material from sample MDF {mdfPath} {str(err)}")
+		print(f"Failed to retrieve material from sample MDF {matNameHash} {str(err)}")
 	if material == None:
-		print(f"Failed to retrieve sample material {matNameHash} at {mdfPath}")
+		print(f"Failed to retrieve sample material {matNameHash}")
 	return material
 	
 def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createBackups):
@@ -65,7 +68,7 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 	try:
 		with open(extractInfoPath,"r", encoding ="utf-8") as file:
 			extractInfo = json.load(file)
-			chunkPath = os.path.join(extractInfo["extractPath"],"natives",extractInfo["platform"])
+			chunkPath = os.path.join("natives",extractInfo["platform"])#Changed to pull from pak directly
 			platform = extractInfo["platform"]
 			print(f"Extract Path: {chunkPath}")
 	except:
@@ -75,12 +78,13 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 	
 	if not os.path.isfile(pakCachePath):
 		raise Exception("Pak cache path is invalid")
-	print("Extracting newest shader files...")
-	mdfExtractList = [f"natives/{platform}/"+entry["mdfPath"] + f".{mdfVersion}" for entry in materialCompendium.values()]
+	#print("Extracting newest shader files...")
+	#mdfExtractList = [f"natives/{platform}/"+entry["mdfPath"] + f".{mdfVersion}" for entry in materialCompendium.values()]
 	#print(mdfExtractList)
-	extractFilesFromPakCache(gameInfoPath, mdfExtractList, extractInfoPath, pakCachePath,extractDependencies=False)
-	print(f"Extracted {len(mdfExtractList)} files.")
-	
+	#extractFilesFromPakCache(gameInfoPath, mdfExtractList, extractInfoPath, pakCachePath,extractDependencies=False)
+	#print(f"Extracted {len(mdfExtractList)} files.")
+	pakStream = PakCacheStream(assetLibDir,gameName)
+	print("Started pak stream.")
 	
 	mmtrMaterialCache = dict()
 	
@@ -91,6 +95,14 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 		requiresUpdate = False
 		try:
 			mdfFile = readMDF(mdfPath)
+			if gameName == "MHWILDS":
+				if mdfFile.Header.materialFlags == 0:
+					mdfFile.Header.materialFlags = 1
+					requiresUpdate = True
+					print("Detected MDF written with older tool version, updating...")
+			
+			#TODO maybe check for non vanilla string buffer
+			
 			for material in mdfFile.materialList:
 				mmtrHash = str(hashUTF8(material.mmtrPath.lower()))
 				#print(material.materialName)
@@ -101,7 +113,13 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 						compendiumEntry = materialCompendium[mmtrHash]
 						#print(materialCompendium[mmtrHash])
 						samplePath = os.path.join(chunkPath,compendiumEntry["mdfPath"].replace("/",os.sep)+f".{mdfVersion}")
-						sampleMaterial = getMaterialByHash(samplePath, compendiumEntry["matNameHash"])
+						mdfData = pakStream.retrieveFileData(samplePath)
+						if mdfData != None:
+							print(f"Retrieved {samplePath}")
+							sampleMaterial = getMaterialByHash(mdfData, compendiumEntry["matNameHash"],int(mdfVersion))
+						else:
+							sampleMaterial = None
+							print(f"MDF not found in pak, cannot retrieve sample material: {samplePath}")
 						mmtrMaterialCache[mmtrHash] = sampleMaterial
 					else:
 						print(f"MMTR path {material.mmtrPath} not in compendium, can't update {material.materialName} material.")
@@ -111,6 +129,21 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 				if sampleMaterial != None:
 					
 					#Properties
+					#Fix incorrect padding
+					
+					#Fix front padding
+					if len(material.propertyList) != 0 and len(sampleMaterial.propertyList) != 0:
+						if material.propertyList[0].frontPadding != sampleMaterial.propertyList[0].frontPadding:
+							print(f"Changed front padding from {material.propertyList[0].frontPadding} to {sampleMaterial.propertyList[0].frontPadding} on {material.propertyList[0].propName} ({material.materialName})")
+							material.propertyList[0].frontPadding = sampleMaterial.propertyList[0].frontPadding
+							requiresUpdate = True
+					
+					propPaddingDict = {item.propName:item.padding for item in sampleMaterial.propertyList}
+					for prop in material.propertyList:
+						if prop.propName in propPaddingDict and prop.padding != propPaddingDict[prop.propName]:
+							print(f"Changed padding from {prop.padding} to {propPaddingDict[prop.propName]} on {prop.propName} ({material.materialName})")
+							prop.padding = propPaddingDict[prop.propName]
+							requiresUpdate = True
 					#print(f"material.materialName")
 					newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
 					#print(newPropNameSet)
@@ -126,7 +159,10 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 								if prop.propName == propName:
 									newProp = Property()
 									newProp.propName = propName
+									
 									newProp.value = prop.value[:]
+									newProp.padding = prop.padding
+									newProp.frontPadding = prop.frontPadding
 									material.propertyList.append(newProp)
 						print(addedPropDifference)
 					removedPropDifference = oldPropNameSet.difference(newPropNameSet)
@@ -172,14 +208,18 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 					makeMDFBackup(mdfPath)
 				writeMDF(mdfFile, mdfPath)
 				updatedFileCount += 1
-				print("Update completed.")
+				print("\nUpdate completed.")
 			else:
-				print("No update required.")
+				print("\nNo update required.")
 				
 						#print(samplePath)
 			#print(mdfPath)
 		except Exception as err:
 			print(f"Failed to read {mdfPath}: {str(err)}")
+			
+	pakStream.closeStreams()
+	del pakStream
+	print("Closed pak stream.")
 	return updatedFileCount
 
 #Runs on Blender collections
@@ -209,7 +249,7 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 	try:
 		with open(extractInfoPath,"r", encoding ="utf-8") as file:
 			extractInfo = json.load(file)
-			chunkPath = os.path.join(extractInfo["extractPath"],"natives",extractInfo["platform"])
+			chunkPath = os.path.join("natives",extractInfo["platform"])#Changed to pull from pak directly
 			platform = extractInfo["platform"]
 			print(f"Extract Path: {chunkPath}")
 	except:
@@ -219,13 +259,13 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 	
 	if not os.path.isfile(pakCachePath):
 		raise Exception("Pak cache path is invalid")
-	print("Extracting newest shader files...")
-	mdfExtractList = [f"natives/{platform}/"+entry["mdfPath"] + f".{mdfVersion}" for entry in materialCompendium.values()]
+	#print("Extracting newest shader files...")
+	#mdfExtractList = [f"natives/{platform}/"+entry["mdfPath"] + f".{mdfVersion}" for entry in materialCompendium.values()]
 	#print(mdfExtractList)
-	extractFilesFromPakCache(gameInfoPath, mdfExtractList, extractInfoPath, pakCachePath,extractDependencies=False)
-	print(f"Extracted {len(mdfExtractList)} files.")
-	
-	
+	#extractFilesFromPakCache(gameInfoPath, mdfExtractList, extractInfoPath, pakCachePath,extractDependencies=False)
+	#print(f"Extracted {len(mdfExtractList)} files.")
+	pakStream = PakCacheStream(assetLibDir,gameName)
+	print("Started pak stream.")
 	mmtrMaterialCache = dict()
 	
 	updatedFileCount = 0
@@ -244,7 +284,13 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 					compendiumEntry = materialCompendium[mmtrHash]
 					#print(materialCompendium[mmtrHash])
 					samplePath = os.path.join(chunkPath,compendiumEntry["mdfPath"].replace("/",os.sep)+f".{mdfVersion}")
-					sampleMaterial = getMaterialByHash(samplePath, compendiumEntry["matNameHash"])
+					mdfData = pakStream.retrieveFileData(samplePath)
+					if mdfData != None:
+						print(f"Retrieved {samplePath}")
+						sampleMaterial = getMaterialByHash(mdfData, compendiumEntry["matNameHash"],int(mdfVersion))
+					else:
+						sampleMaterial = None
+						print(f"MDF not found in pak, cannot retrieve sample material: {samplePath}")
 					mmtrMaterialCache[mmtrHash] = sampleMaterial
 				else:
 					print(f"MMTR path {matData.mmtrPath} not in compendium, can't update {materialObj.name}")
@@ -255,6 +301,21 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 				
 				#Properties
 				
+				#Fix incorrect padding
+				
+				#Fix front padding
+				if len(matData.propertyList_items) != 0 and len(sampleMaterial.propertyList) != 0:
+					if matData.propertyList_items[0].frontPadding != sampleMaterial.propertyList[0].frontPadding:
+						print(f"Changed front padding from {matData.propertyList_items[0].frontPadding} to {sampleMaterial.propertyList[0].frontPadding} on {matData.propertyList_items[0].prop_name} ({materialObj.name})")
+						matData.propertyList_items[0].frontPadding = sampleMaterial.propertyList[0].frontPadding
+						requiresUpdate = True
+				
+				propPaddingDict = {item.propName:item.padding for item in sampleMaterial.propertyList}
+				for prop in matData.propertyList_items:
+					if prop.prop_name in propPaddingDict and prop.padding != propPaddingDict[prop.prop_name]:
+						print(f"Changed padding from {prop.padding} to {propPaddingDict[prop.prop_name]} on {prop.prop_name} ({materialObj.name})")
+						prop.padding = propPaddingDict[prop.prop_name]
+						requiresUpdate = True
 				newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
 				#print(newPropNameSet)
 		        
@@ -272,6 +333,7 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 								newProp = matData.propertyList_items.add()
 								newProp.prop_name = propName
 								newProp.padding = prop.padding
+								newProp.frontPadding = prop.frontPadding
 								lowerPropName = prop.propName.lower()
 								if  (prop.paramCount == 4 and ("color" in lowerPropName or "_col_" in lowerPropName) and "rate" not in lowerPropName):
 									newProp.data_type = "COLOR"
@@ -346,4 +408,8 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 			
 					#print(samplePath)
 		#print(mdfPath)
+	pakStream.closeStreams()
+	del pakStream
+	print("Closed pak stream.")
+	
 	return updatedFileCount

@@ -63,7 +63,10 @@ def getCamera(name):
 
 def setupScene(hdriPath):
     #Render
-    bpy.context.scene.render.engine = "BLENDER_EEVEE_NEXT"
+    if bpy.app.version >= (5,0,0):
+	    bpy.context.scene.render.engine = "BLENDER_EEVEE"
+    else:
+        bpy.context.scene.render.engine = "BLENDER_EEVEE_NEXT"
     bpy.context.scene.render.film_transparent = True
     bpy.context.scene.eevee.use_raytracing = True
     bpy.context.scene.view_settings.view_transform = "AgX"

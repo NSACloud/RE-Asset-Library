@@ -1225,7 +1225,7 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 				print(f"{len(skippedHashSet)} unknown entries.")
 				
 				newPathSet = set()
-				
+				unresolvedPathSet = set()#Print out any paths that may potentially be files but weren't able to extract
 				for path in scannedPathSet:
 					nativesPath = f"natives/{platform}/"+path.replace("@","")+"."+gameInfo["fileVersionDict"].get(f"{os.path.splitext(path)[1][1::].upper()}_VERSION","999")
 					#print(nativesPath)
@@ -1241,6 +1241,9 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 								if lookupHash in skippedHashSet:
 									reverseLookupDict[lookupHash] = streamingPath
 									newPathSet.add(streamingPath)
+					else:
+						if lookupHash not in lookupDict:
+							unresolvedPathSet.add(nativesPath)
 					#print(path)
 				print(f"New files found: {len(newPathSet)}")
 				for path in newPathSet:
@@ -1304,7 +1307,12 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 									extractedFilesSet.add(lookupHash)
 							except Exception as err:
 								print(f"Failed to extract {outPath}:{str(err)}")
-				print(f"Pak extracted to {outDir}")
+				
+				if len(unresolvedPathSet) != 0:
+					print("\n\n\nAdditional potential file paths:")
+					for entry in sorted(list(unresolvedPathSet)):
+						print(entry)
+				print(f"\nPak extracted to {outDir}")
 				print(f"All files extracted, {unknownCount} unknown paths.")
 				
 				

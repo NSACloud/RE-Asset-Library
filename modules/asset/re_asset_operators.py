@@ -758,7 +758,7 @@ class WM_OT_ImportREAssetLibraryFromCatalog(Operator):
 			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
 		except:
 			gameName = "UNKN"
-		print(f"Game Name:{gameName}")
+		#print(f"Game Name:{gameName}")
 		
 		if gameName != None:
 			catalogPath = os.path.join(blendDir,f"REAssetCatalog_{gameName}.tsv")

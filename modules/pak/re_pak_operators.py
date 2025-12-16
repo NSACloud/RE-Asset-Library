@@ -69,7 +69,7 @@ class WM_OT_SetExtractInfo(Operator):
 	   default = "",
 	   options = {"HIDDEN"})
 	exePath : bpy.props.StringProperty(
-	   name = "Game EXE Path",
+	   name = "Game EXE File Path",
 	   description = "Set the path to the main executable file for the game. Example: MonsterHunterWilds.exe.\nYou can find where this file is located by right clicking the game in Steam > Browse Local Files.\nThis is used to determine where pak files are and when the game is updated.\nDo not set it to anything other than the game .exe or extracted files may be corrupted when you try to extract them after a game update",
 	   default = "",
 	   subtype = "FILE_PATH",

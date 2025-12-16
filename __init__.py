@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 17),
+	"version": (0, 18),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -290,6 +290,9 @@ class ImportREAssetLib(bpy.types.Operator, ImportHelper):
 				else:
 					self.report({"ERROR"},"Missing files, cannot create library.")
 					return {'CANCELLED'}
+				
+				#Update asset library list
+				bpy.ops.re_asset.detect_re_asset_library(silent = True)
 				return {"FINISHED"}
 		self.report({"INFO"},"Failed to import RE Asset Library. See Window > Toggle System Console for details")
 		return {"CANCELLED"}
@@ -343,9 +346,8 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 					except:
 						pass
 					
-					#Update asset library list
-					bpy.ops.re_asset.detect_re_asset_library()
-					self.report({"INFO"},f"Downloaded {entry.gameName} library.")
+					
+					self.report({"INFO"},f"Downloaded {entry.gameName} library. You can open the Asset Browser by going to File > New > RE Assets.")
 					
 				else:
 					print("CRC Check failed, aborting install.")
@@ -426,6 +428,7 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 		("KG", "Kunitsu-Gami", ""),
 		("DR", "Dead Rising", ""),
 		("ONI2", "Onimusha 2", ""),
+		("PRAG", "Pragmata", ""),
 		("MHWILDS", "Monster Hunter Wilds", ""),
 		]
     )
@@ -494,7 +497,10 @@ class WM_OT_DetectREAssetLibrary(Operator):
 	bl_idname = "re_asset.detect_re_asset_library"
 	bl_options = {'INTERNAL'}
 	
-		
+	silent : BoolProperty(
+	   name = "Silent",
+	   description = "Don't report status after running",
+	   default = False)	
 	@classmethod
 	def poll(self,context):
 		return context is not None
@@ -502,7 +508,8 @@ class WM_OT_DetectREAssetLibrary(Operator):
 		assetLibraryPath = bpy.path.abspath(bpy.context.preferences.addons[__name__].preferences.assetLibraryPath)
 		
 		if not os.path.isdir(assetLibraryPath):
-			self.report({"ERROR"},"Invalid RE asset library path.")
+			if not self.silent:
+				self.report({"ERROR"},"Invalid RE asset library path.")
 			return {'CANCELLED'}
 		subDirectoryList = [ f.name for f in os.scandir(assetLibraryPath) if f.is_dir() ]
 		for directory in subDirectoryList:
@@ -515,8 +522,9 @@ class WM_OT_DetectREAssetLibrary(Operator):
 		for lib in bpy.context.preferences.filepaths.asset_libraries:#Remove any paths that don't exist
 			if "RE Assets - " in lib.name and not os.path.isdir(lib.path):
 				bpy.context.preferences.filepaths.asset_libraries.remove(lib)
-		
-		self.report({"INFO"},"Refreshed RE Asset Library list.")
+		bpy.ops.wm.save_userpref()
+		if not self.silent:
+			self.report({"INFO"},"Refreshed RE Asset Library list.")
 		return {'FINISHED'}
 	
 class WM_OT_OpenREAssetLibraryFolder(Operator):
@@ -782,7 +790,7 @@ classes = [
 def on_register():
 	if len(bpy.context.preferences.addons[__name__].preferences.fileTypeWhiteList_items) == 0:
 		bpy.ops.re_asset.reset_whitelist_items()
-	bpy.ops.wm.save_userpref()#Save preferences on register, otherwise when a new blend file is opened, the addon might not be registered on the new instance.
+	bpy.ops.re_asset.detect_re_asset_library(silent = True)#Save preferences on register, otherwise when a new blend file is opened, the addon might not be registered on the new instance.
 def register():
 	addon_updater_ops.register(bl_info)
 	for classEntry in classes:
