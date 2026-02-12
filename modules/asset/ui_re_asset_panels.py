@@ -31,6 +31,8 @@ class OBJECT_PT_REAssetLibraryPanel(Panel):
 		layout.operator("re_asset.import_catalog",icon = "FILE_REFRESH")
 		layout.operator("re_asset.save_to_catalog", icon = "FILE_TICK")
 		layout.operator("re_asset.export_catalog_diff", icon = "INTERNET")
+		layout.operator("re_asset.generate_material_compendium", icon = "RENDERLAYERS")
+		layout.operator("re_asset.generate_rszcrc_compendium", icon = "RENDERLAYERS")
 		#layout.operator("re_asset.import_catalog_diff", icon = "IMPORT")#TODO
 		layout.label(text = "Export Tools")
 		layout.operator("re_asset.open_library_folder")

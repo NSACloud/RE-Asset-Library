@@ -4,6 +4,7 @@ import json
 
 from ..hashing.mmh3.pymmh3 import hashUTF8
 from ..pak.re_pak_utils import loadGameInfo,extractFilesFromPakCache,PakCacheStream
+from ..asset.re_asset_utils import loadREAssetCatalogFile
 from io import BytesIO
 from shutil import copyfile
 from .file_re_mdf import readMDF,writeMDF,Property,TextureBinding,MDFFile
@@ -413,3 +414,45 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 	print("Closed pak stream.")
 	
 	return updatedFileCount
+
+def generateMaterialCompendium(libraryDir,gameName):
+	gameInfoPath = os.path.join(libraryDir,f"GameInfo_{gameName}.json")
+	catalogPath = os.path.join(libraryDir,f"REAssetCatalog_{gameName}.tsv")
+	extractInfoPath = os.path.join(libraryDir,f"ExtractInfo_{gameName}.json")
+	compendiumOutPath = os.path.join(libraryDir,f"MaterialCompendium_{gameName}.json")
+	if os.path.isfile(gameInfoPath):
+		gameInfo = loadGameInfo(gameInfoPath)
+		assetEntryList = loadREAssetCatalogFile(catalogPath)
+		extractPath = None
+		with open(extractInfoPath,"r", encoding ="utf-8") as file:
+			extractInfo = json.load(file)
+			extractPath = extractInfo["extractPath"].replace("/",os.sep)
+		mdfFileList = [entry[0]+"."+gameInfo["fileVersionDict"]["MDF2_VERSION"] for entry in assetEntryList if entry[0].endswith(".mdf2")]
+		print(f"Processing {len(mdfFileList)} MDF files")
+		
+		mmtrUsageDict = {}
+		pakStream = PakCacheStream(libraryDir,gameName)
+		
+		for path in mdfFileList:
+			
+			fullPath = os.path.join("natives",extractInfo["platform"],path.replace(os.sep,"/").replace("\\","/"))
+			fileData = pakStream.retrieveFileData(fullPath)
+			if fileData != None:
+				try:
+					with BytesIO(fileData) as file:
+						mdfFile = MDFFile()
+						mdfFile.read(file,int(gameInfo["fileVersionDict"]["MDF2_VERSION"]))
+						for material in mdfFile.materialList:
+							mmtrLowerPathHash = hashUTF8(material.mmtrPath.lower())
+							if mmtrLowerPathHash not in mmtrUsageDict:
+								mmtrUsageDict[mmtrLowerPathHash] = {"name":os.path.splitext(os.path.split(material.mmtrPath)[1])[0],"mdfPath":os.path.splitext(path)[0],"matNameHash":material.matNameHash}
+				except Exception as err:
+					print(f"Failed to read ({fullPath}:{str(err)})")
+		pakStream.closeStreams()
+		del pakStream
+		sortedDict = {k: v for k, v in sorted(mmtrUsageDict.items(), key=lambda item: item[1]["name"])}
+		with open(compendiumOutPath,"w", encoding ="utf-8") as outFile:
+			json.dump(sortedDict,outFile,sort_keys=False,indent=4)
+			print(f"Wrote {os.path.split(compendiumOutPath)[1]}")
+		print(f"{len(sortedDict)} shader entries written")	
+		#print(mdfFileList)

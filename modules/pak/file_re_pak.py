@@ -69,7 +69,9 @@ class PakTOC():
 	def __init__(self):
 		self.entryList = []
 		
-	def read(self,file,header):
+	def read(self,file,header,remapTable):
+		
+		isRemapTableUsed = remapTable != None
 		
 		if header.majorVersion == 2:
 			entrySize = PAK_VER_2_ENTRY_SIZE
@@ -81,8 +83,8 @@ class PakTOC():
 		
 		tocData = file.read(entrySize*header.entryCount)
 		
-		if header.feature == 8 or header.feature == 24 or header.feature == 40:
-			if header.feature == 24:
+		if header.featureIsTOCEncrypted:
+			if header.featureUseUnknTable:
 				file.seek(4,1)#Skip empty table, used in wilds HD texture pak
 			decryptStartTime = time.time()
 			
@@ -119,6 +121,11 @@ class PakTOC():
 				) = unpackData
 				entry.compressionType = entry.attributes & 0xF
 				entry.encryptionType = (entry.attributes & 0x00FF0000) >> 16
+				entry.useRemapTable = (entry.attributes >> 24) & 0xFF
+				
+				if entry.useRemapTable and isRemapTableUsed:
+					entry.offset = remapTable.entryList[entry.offset].fileOffset
+					#print(f"Remapped {entry.hashNameLower}-{entry.hashNameUpper} to {entry.offset}")
 				
 				self.entryList.append(entry)
 				#print(entry.offset)
@@ -139,6 +146,10 @@ class PakHeader():
 		self.entryCount = 0
 		self.fingerprint = 0
 		
+		#Has no function in reading or writing, purely to make code easier to read
+		self.featureIsTOCEncrypted = False
+		self.featureUseUnknTable = False
+		self.featureUseRemapTable = False
 	def read(self,file):
 		self.magic = read_uint(file)
 		if self.magic != 1095454795:
@@ -149,12 +160,16 @@ class PakHeader():
 		self.entryCount = read_uint(file)
 		self.fingerprint = read_uint(file)
 		
+		self.featureIsTOCEncrypted = bool((self.feature >> 3) & 1)
+		self.featureUseUnknTable = bool((self.feature >> 4) & 1)
+		self.featureUseRemapTable = bool((self.feature >> 5) & 1)
+		
 		
 		if self.majorVersion != 2 and self.majorVersion != 4 or self.minorVersion != 0 and self.minorVersion != 1 and self.minorVersion != 2:
 			raise Exception(f"Invalid Pak Version ({self.majorVersion}.{self.minorVersion}), expected 2.0, 4.0 & 4.1")
 			
-		if self.feature != 0 and self.feature != 8 and self.feature != 24 and self.feature != 40:
-			raise Exception(f"Unsupported Encryption Type ({self.feature})")
+		#if self.feature != 0 and self.feature != 8 and self.feature != 24 and self.feature != 40:
+		#	raise Exception(f"Unsupported Encryption Type ({self.feature})")
 			
 	def write(self,file):
 		write_uint(file,self.magic)
@@ -165,25 +180,87 @@ class PakHeader():
 		write_uint(file,self.fingerprint)
 		
 
+class PakRemapTableEntry():
+	def __init__(self):
+		self.fileOffset = 0
+		self.unkn = 0
+		
+	def read(self,file):	
+		self.fileOffset = read_uint(file)
+		self.unkn = read_uint(file)
+
+class PakRemapTable():
+	def __init__(self):
+		
+		#TODO Fix this to read chunks properly
+		#There's a lot of things I'll have to change to make this work properly and I don't want to get into it right now
+		#This will cause .mov and possibly some sound files to not extract correctly in pragmata and newer.
+		 
+		self.unkn0 = 0#TODO change to uint block size
+		self.unkn1 = 0#
+		self.entryCount = 0
+		self.entryList = []
+		
+	def read(self,file):
+		
+		self.unkn0 = read_ushort(file)
+		self.unkn1 = read_ushort(file)#
+		self.entryCount = read_uint(file)
+		if self.unkn1 == 8:
+			for _ in range(0,self.entryCount):
+				entry = PakRemapTableEntry()
+				entry.read(file)
+				self.entryList.append(entry)
+		
+
 class PakFile():
 	def __init__(self):
 		self.header = PakHeader()
 		self.toc = PakTOC()
+		self.remapTable = None
 		self.data = bytes()#Unused
 	def read(self,file):#For testing, not supposed to be used
 		self.header.read(file)
-		self.toc.read(file,self.header)
+		#Does not remap offsets, keeps them as the original ones
+		self.toc.read(file,self.header,self.remapTable)
 		self.data = file.read()
 	def readTOC(self,file):
 		self.header.read(file)
-		self.toc.read(file,self.header)
-	
+		if self.header.majorVersion >= 5 or (self.header.majorVersion == 4 and self.header.minorVersion >= 2) and self.header.featureUseRemapTable:
+			tocStartPos = file.tell()
+			remapTableOffset = 16 + self.header.entryCount * 48
+			if self.header.featureUseUnknTable:
+				remapTableOffset += 4#Skip unkn table
+			if self.header.featureIsTOCEncrypted:
+				remapTableOffset += 128#Encryption key size
+			#print(f"Remap table offset: {remapTableOffset}")
+			file.seek(remapTableOffset)
+			self.remapTable = PakRemapTable()
+			print("Loading pak remap table.")
+			self.remapTable.read(file)
+			
+			if self.remapTable.unkn1 != 8:
+				print("Warning: Remap table value is not 8, skipping.")
+				self.remapTable = None
+			file.seek(tocStartPos)
+		self.toc.read(file,self.header,self.remapTable)
+		
 	def write(self,file):#Only for creating patch paks when called by pak utils atm
 		self.header.write(file)
 		self.toc.write(file)
 		for entry in self.toc.entryList:
 			file.seek(entry.offset)
 			file.write(entry.fileData)
+	
+	def writeDebug(self,file):#For dumping decrypted pak
+		self.header.write(file)
+		self.toc.write(file)
+		if self.header.feature == 8 or self.header.feature == 24 or self.header.feature == 40:
+			if self.header.feature == 24:
+				file.seek(4,1)#Skip empty table, used in wilds HD texture pak
+			for _ in range(128):#Write dummy encryption key
+				write_ubyte(file,255)
+		file.write(self.data)
 	
 def ReadPakTOC(pakPath):
 	try:
@@ -198,6 +275,18 @@ def ReadPakTOC(pakPath):
 		print(f"Could not read {pakPath}, skipping. {str(err)}")
 		return []
 
+#Not for use with large paks
+def readPak(filepath):
+	pakFile = None
+	try:
+		file = open(filepath,"rb")
+		pakFile = PakFile()
+		pakFile.read(file)
+	except:
+		raise Exception("Failed to open " + filepath)
+	file.close()
+	return pakFile
+
 def writePak(pakFile,filepath):
 	try:
 		file = open(filepath,"wb")
@@ -205,4 +294,13 @@ def writePak(pakFile,filepath):
 		raise Exception("Failed to open " + filepath)
 
 	pakFile.write(file)
+	file.close()
+	
+def writePakDecrypted(pakFile,filepath):
+	try:
+		file = open(filepath,"wb")
+	except:
+		raise Exception("Failed to open " + filepath)
+
+	pakFile.writeDebug(file)
 	file.close()

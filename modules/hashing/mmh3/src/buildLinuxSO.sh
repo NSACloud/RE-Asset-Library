@@ -1,0 +1,1 @@
+g++ -shared MurmurHash3.cpp fastMMH3Wrapper.cpp -fPIC -D'__declspec(dllexport)=__attribute((visibility("default")))' -o fastMMH3Wrapper.so

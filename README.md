@@ -1,7 +1,8 @@
+
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.18 (12/15/2025)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.19 (2/11/2026)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 # PSA (READ THIS): 
 
 **The "RE Asset" tab is now located in the "RE Asset Library" menu inside the asset browser.**
@@ -198,6 +199,14 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.19 - 2/11/2026
+* Added support for Monster Hunter Stories 3.
+(Side note: The Monster Hunter Rise asset library is updated and fully labeled now.)
+* Made hashing approximately 20x faster, this makes unpacking pak files take less time.
+* Fixed issue where audio files wouldn't extract correctly in Pragmata and Monster Hunter Stories 3. NOTE: There is currently an issue with extracting .mov (video files) with these games. This will be fixed at a later point.
+* Added Generate Material Compedium and Generate CRC Compendium buttons in asset libraries. These allow an asset library to use the CRC and MDF updaters.
+* Other minor fixes.
 
 ### V0.18 - 12/15/2025
 * Added support for Pragmata.

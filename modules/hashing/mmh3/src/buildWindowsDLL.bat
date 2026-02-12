@@ -1,0 +1,1 @@
+g++ -shared MurmurHash3.cpp fastMMH3Wrapper.cpp -o fastMMH3Wrapper.dll

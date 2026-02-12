@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 18),
+	"version": (0, 19),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -75,7 +75,8 @@ from .modules.asset.re_asset_operators import (
 	WM_OT_InitializeREAssetLibrary,
 	WM_OT_CheckForREAssetLibraryUpdate,
 	WM_OT_OpenLibraryFolder,
-	
+	WM_OT_GenerateMaterialCompendium,
+	WM_OT_GenerateRSZCRCCompendium,
 	
 	REToolListFileToREAssetCatalogAndGameInfo,
 	
@@ -430,6 +431,7 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 		("ONI2", "Onimusha 2", ""),
 		("PRAG", "Pragmata", ""),
 		("MHWILDS", "Monster Hunter Wilds", ""),
+		("MHS3", "Monster Hunter Stories 3", ""),
 		]
     )
 	listPath: StringProperty(
@@ -768,6 +770,8 @@ classes = [
 	WM_OT_OpenREAssetLibraryFolder,
 	WM_OT_CheckForREAssetLibraryUpdate,
 	WM_OT_OpenLibraryFolder,
+	WM_OT_GenerateMaterialCompendium,
+	WM_OT_GenerateRSZCRCCompendium,
 	
 	ImportREAssetLib,
 	

@@ -16,6 +16,7 @@ from ..gen_functions import progressBar,formatByteSize,read_ubyte,read_ushort,re
 
 from .file_re_pak import ReadPakTOC,PakFile,PakTOCEntry,writePak
 from ..hashing.mmh3.pymmh3 import hashUTF16#TODO Replace with pypi mmh3 library, orders of magnitude faster
+from ..hashing.mmh3.fastmmh3 import FastMMH3
 from ..encryption.re_pak_encryption import decryptResource
 from ..asset.re_asset_utils import loadGameInfo,getFileCRC,buildNativesPathFromObj,loadREAssetCatalogFile,buildNativesPathFromCatalogEntry
 from ..rszmini.re_rsz_utils import getRSZResourcePaths
@@ -38,6 +39,10 @@ def getPakLookupTable(pakPath):
 def pathToPakHash(path):
 	path = path.replace(os.sep,"/").replace("\\","/")
 	return concatInt(hashUTF16(path.lower()),hashUTF16(path.upper()))
+
+def pathToPakHashFast(hasher,path):
+	path = path.replace(os.sep,"/").replace("\\","/")#The overhead on this replace is about 400 ms total when hashing the wilds list
+	return hasher.pakHash(path)
 
 def readListFileSet(listPath):
 	outPathSet = set()
@@ -128,7 +133,6 @@ def findPakMDFPathFromMeshPath(meshPath,lookupDict,mdfVersion,gameName = None):
 	#Should use regex to do this
 	split = meshPath.split(".mesh")
 	fileRoot = split[0]
-	
 	mdfPath = f"{fileRoot}.mdf2.{mdfVersion}"
 	lookupHash = pathToPakHash(mdfPath)
 	if not lookupHash in lookupDict:
@@ -351,8 +355,9 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 					#print(f"Detected MDF path: {mdfPath}")
 					filePathList.append(mdfPath)
 		#print(filePathList)
+		fastMMH3Hasher = FastMMH3()
 		for filePath in filePathList:
-			lookupHash = pathToPakHash(filePath)
+			lookupHash = pathToPakHashFast(fastMMH3Hasher,filePath)
 			if lookupHash in lookupDict:
 				fileInfo = lookupDict[lookupHash]
 				fileInfo["filePath"] = filePath
@@ -368,7 +373,7 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 					streamingPath = getStreamingPath(filePath,platform,lookupDict)
 					if streamingPath != None:
 						#print("Found streamed path")
-						lookupHash = pathToPakHash(streamingPath)
+						lookupHash = pathToPakHashFast(fastMMH3Hasher,streamingPath)
 						if lookupHash in lookupDict:
 							fileInfo = lookupDict[lookupHash]
 							fileInfo["filePath"] = streamingPath
@@ -389,7 +394,7 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 			for path in newFilesSet:
 				fileVersion = gameInfo["fileVersionDict"].get(f"{os.path.splitext(path)[1][1::].upper()}_VERSION",999)
 				filePath = f"natives/{platform}/{path}.{fileVersion}"
-				lookupHash = pathToPakHash(filePath)
+				lookupHash = pathToPakHashFast(fastMMH3Hasher,filePath)
 				if lookupHash in lookupDict:
 					fileInfo = lookupDict[lookupHash]
 					fileInfo["filePath"] = filePath
@@ -404,7 +409,7 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 					if os.path.splitext(os.path.splitext(filePath)[0])[1] in STREAMING_FILE_TYPE_SET:
 						streamingPath = getStreamingPath(filePath,platform,lookupDict)
 						if streamingPath != None:
-							lookupHash = pathToPakHash(streamingPath)
+							lookupHash = pathToPakHashFast(fastMMH3Hasher,streamingPath)
 							if lookupHash in lookupDict:
 								fileInfo = lookupDict[lookupHash]
 								fileInfo["filePath"] = streamingPath
@@ -751,8 +756,10 @@ def extractPakMP(filePathList,pakPathList,outDir,maxThreads = cpu_count()-1,skip
 	hashStartTime = time.time()
 	print(f"Hashing {len(filePathList)} file paths...")
 	filePathHashDict = dict()
+	
+	fastMMH3Hasher = FastMMH3()
 	for filePath in filePathList:
-		filePathHashDict[pathToPakHash(filePath)] = filePath
+		filePathHashDict[pathToPakHashFast(fastMMH3Hasher,filePath)] = filePath
 	hashEndTime = time.time()
 	hashTime =  hashEndTime - hashStartTime
 	print(f"Hashing file paths took {timeFormat%(hashTime * 1000)} ms.")
@@ -948,7 +955,7 @@ RSZ_MAGIC_SET = {
 	5919570,#RSZ
 	}
 MDF_MAGIC = 4605005#MDF
-
+CHAIN2_MAGIC = 846096483
 KNOWN_MAGIC_DICT ={
 	
 	5395285:"user",
@@ -1108,6 +1115,7 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 	gameInfo = loadGameInfo(gameInfoPath)
 	filePathList = []
 	filePathList.extend(extraPathList)
+	unpackStartTime = time.time()
 	for row in [entry for entry in loadREAssetCatalogFile(catalogPath)]:
 		nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION","999"), platform)
 		filePathList.append(nativesPath)
@@ -1159,11 +1167,22 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 	if os.path.isfile(pakPath):
 		lookupDict = getPakLookupTable(pakPath)
 		reverseLookupDict = dict()
+		fastMMH3Hasher = FastMMH3()
 		print(f"Hashing {len(filePathList)} paths...")
 		for filePath in progressBar(filePathList, prefix = 'Progress:', suffix = 'Complete', length = 50):
-			lookupHash = pathToPakHash(filePath)
+			lookupHash = pathToPakHashFast(fastMMH3Hasher,filePath)
 			if lookupHash in lookupDict:
 				reverseLookupDict[lookupHash] = filePath
+		
+		if gameName == "MHWILDS":#Hack fix for extracting older chain file versions if present
+			for path in filePathList:
+				if path.endswith(".chain2"):
+					nativesPath = f"natives/{platform}/"+path.replace("@","")+".13"
+					#print(nativesPath)
+					lookupHash = pathToPakHashFast(fastMMH3Hasher,nativesPath)
+					if lookupHash in lookupDict:
+						reverseLookupDict[lookupHash] = nativesPath
+						
 		print(f"Extracting {len(reverseLookupDict)} known file paths...")
 		with open(pakPath,"rb") as pakStream:
 			for lookupHash in progressBar(lookupDict, prefix = 'Progress:', suffix = 'Complete', length = 50):
@@ -1190,7 +1209,6 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 				
 				with BytesIO(fileData) as tempStream:
 					magic,magic2 = getFileMagic(tempStream)
-					#magic2 is unused for now
 					
 					if magic == MDF_MAGIC:
 						try:
@@ -1226,10 +1244,21 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 				
 				newPathSet = set()
 				unresolvedPathSet = set()#Print out any paths that may potentially be files but weren't able to extract
+				
+				if gameName == "MHWILDS":#Hack fix for extracting older chain file versions if present
+					for path in scannedPathSet:
+						if path.endswith(".chain2"):
+							nativesPath = f"natives/{platform}/"+path.replace("@","")+".13"
+							#print(nativesPath)
+							lookupHash = pathToPakHashFast(fastMMH3Hasher,nativesPath)
+							if lookupHash in skippedHashSet:
+								reverseLookupDict[lookupHash] = nativesPath
+								newPathSet.add(nativesPath)
+								
 				for path in scannedPathSet:
 					nativesPath = f"natives/{platform}/"+path.replace("@","")+"."+gameInfo["fileVersionDict"].get(f"{os.path.splitext(path)[1][1::].upper()}_VERSION","999")
 					#print(nativesPath)
-					lookupHash = pathToPakHash(nativesPath)
+					lookupHash = pathToPakHashFast(fastMMH3Hasher,nativesPath)
 					if lookupHash in skippedHashSet:
 						reverseLookupDict[lookupHash] = nativesPath
 						newPathSet.add(nativesPath)
@@ -1237,7 +1266,7 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 							streamingPath = getStreamingPath(filePath,platform,lookupDict)
 							if streamingPath != None:
 								#print("Found streamed path")
-								lookupHash = pathToPakHash(streamingPath)
+								lookupHash = pathToPakHashFast(fastMMH3Hasher,streamingPath)
 								if lookupHash in skippedHashSet:
 									reverseLookupDict[lookupHash] = streamingPath
 									newPathSet.add(streamingPath)
@@ -1314,7 +1343,10 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 						print(entry)
 				print(f"\nPak extracted to {outDir}")
 				print(f"All files extracted, {unknownCount} unknown paths.")
-				
+				unpackEndTime = time.time()
+				unpackTime =  unpackEndTime - unpackStartTime
+				unpackTimeInt = int(unpackTime*1000)
+				print(f"Unpacking took {unpackTimeInt} ms.")
 				
 	else:
 		raise Exception("Pak path does not exist.")

@@ -228,6 +228,10 @@ def renderMeshThumbnail(meshPath,outPath,hdriPath):#Use category to determine if
         for subMesh in subMeshList:#Hair rendering fix
             if "fakeao" in subMesh.name.lower() or "fake_ao" in subMesh.name.lower():
                 bpy.data.objects.remove(bpy.data.objects[subMesh.name],do_unlink = True)
+            if "__emittertarget_01" in subMesh.name.lower():
+                bpy.data.objects.remove(bpy.data.objects[subMesh.name],do_unlink = True)
+            if "em" in meshPath and "damage" in subMesh.name.lower():
+                bpy.data.objects.remove(bpy.data.objects[subMesh.name],do_unlink = True)
     
     except Exception as err:
         print(f"Import error: {meshPath} - {str(err)}")
@@ -297,12 +301,13 @@ if os.path.isfile(RENDER_JOB_PATH):
     if ADDON_PREFERENCES:#Reset show console setting to original value
         ADDON_PREFERENCES.showConsole = consoleSetting
         print("Reset RE Mesh Editor console show setting")
-    print()
-    print("Render Job Finished")
     try:
         bpy.ops.wm.console_toggle()
     except:
         pass
+    print()
+    print("Render Job Finished")
+    
     bpy.ops.wm.quit_blender()
 	
     

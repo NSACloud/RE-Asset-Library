@@ -19,6 +19,9 @@ from bpy.types import Operator
 from ..gen_functions import splitNativesPath,wildCardFileSearch,progressBar,formatByteSize
 from .blender_re_asset import getChunkPathList
 from ..blender_utils import showMessageBox
+from ..mdf.re_mdf_updater_utils import generateMaterialCompendium
+from ..rszmini.re_rsz_updater_utils import generateRSZCRCCompendium
+
 CRC_INFO_VERSION = 1
 
 #IMAGE_FORMAT = ".png"
@@ -85,6 +88,7 @@ def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputG
 		"mesh",
 		"chain",
 		"chain2",
+		"fbxskel",
 		])
 	fileExtensionSet = set()
 	gameInfoDict = dict()
@@ -1010,9 +1014,9 @@ def save_response_content(response, destination, chunk_size):
 #--
 
 class WM_OT_ExportCatalogDiff(Operator):
-	bl_label = "Submit Library Changes To GitHub"
+	bl_label = "Generate Library Diff"
 	bl_idname = "re_asset.export_catalog_diff"
-	bl_description = "Exports changes made to library compared to it's original state. Opens an issue submission page on GitHub."
+	bl_description = "Exports changes made to library compared to it's original state to a CSV file."
 	bl_options = {'INTERNAL'}
 	def execute(self, context):
 		blendDir = os.path.split(bpy.path.abspath(bpy.context.blend_data.filepath))[0]
@@ -1094,13 +1098,14 @@ class WM_OT_ExportCatalogDiff(Operator):
 				with zipfile.ZipFile(diffZipPath, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
 				    zf.writestr(f"Diff_REAssetCatalog_{gameName}_{timestamp}.tsv", stream.getvalue())
 				os.startfile(os.path.split(diffZipPath)[0])
-				githubURL = generateGitHubIssueURL(
-				user = "NSACloud",
-				repo = "RE-Asset-Library-Collection",
-				gameName = gameName,
-				desc = f"{changeCount} asset entries changed.\n\n(Don't forget to attach the generated diff zip file by dragging it into this box)",
-				)
-				bpy.ops.wm.url_open(url = githubURL)
+				
+				#githubURL = generateGitHubIssueURL(
+				#user = "NSACloud",
+				#repo = "RE-Asset-Library-Collection",
+				#gameName = gameName,
+				#desc = f"{changeCount} asset entries changed.\n\n(Don't forget to attach the generated diff zip file by dragging it into this box)",
+				#)
+				#bpy.ops.wm.url_open(url = githubURL)
 				self.report({"INFO"},"Generated Diff file.")
 			else:
 				self.report({"INFO"},"No changes have been made to the asset library so a Diff file can't be generated.")
@@ -1110,10 +1115,7 @@ class WM_OT_ExportCatalogDiff(Operator):
 		return bpy.context.scene is not None
 	def draw(self,context):
 		layout = self.layout
-		layout.label(text="This will generate a zip file containing all changes.")
-		layout.label(text="An issue submission web page on GitHub will be opened.")
-		layout.label(text="Drag the generated zip file into description box.")
-		layout.label(text="A GitHub account is required.")
+		layout.label(text="This will generate a zip file containing all changes made.")
 	def invoke(self,context,event):
 		return context.window_manager.invoke_props_dialog(self)
 class WM_OT_ImportCatalogDiff(Operator):
@@ -1308,4 +1310,37 @@ class WM_OT_OpenLibraryFolder(Operator):
 			os.startfile(os.path.split(bpy.context.blend_data.filepath)[0])
 		except:
 			pass
+		return {'FINISHED'}
+	
+class WM_OT_GenerateMaterialCompendium(Operator):
+	bl_label = "Generate Material Compendium"
+	bl_description = "Generates file containing paths to all material shaders. This is used for the MDF Updater"
+	bl_idname = "re_asset.generate_material_compendium"
+
+	def execute(self, context):
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			libPath = os.path.split(bpy.context.blend_data.filepath)[0]
+			generateMaterialCompendium(libPath,gameName)
+			self.report({"INFO"},"Generated Material Compendium.")
+		except Exception as err:
+			print(err)
+			self.report({"ERROR"},"Could not generate compendium. See console. (Window > Toggle System Console)")
+		return {'FINISHED'}
+	
+class WM_OT_GenerateRSZCRCCompendium(Operator):
+	bl_label = "Generate RSZ CRC Compendium"
+	bl_description = "Generates file containing paths to all rsz instance types. This is used for the RSZ CRC Updater"
+	bl_idname = "re_asset.generate_rszcrc_compendium"
+
+	def execute(self, context):
+		try:
+			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			libPath = os.path.split(bpy.context.blend_data.filepath)[0]
+			generateRSZCRCCompendium(libPath,gameName)
+			self.report({"INFO"},"Generated CRC Compendium.")
+		except Exception as err:
+			print(err)
+			self.report({"ERROR"},"Could not generate compendium. See console. (Window > Toggle System Console)")
+		
 		return {'FINISHED'}

@@ -149,7 +149,7 @@ class WM_OT_SetExtractInfo(Operator):
 					
 					addChunkPath(chunkPath=os.path.join(newDirPath,"natives",self.platform),gameName = gameName)
 					
-					showMessageBox("Game extraction set up completed.")
+					showMessageBox("Game extraction set up completed.",title="Set Game Extract Paths")
 					
 				else:
 					print("No pak files were found in game directory. Cannot continue.")
