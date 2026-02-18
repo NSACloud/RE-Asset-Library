@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 19),
+	"version": (0, 20),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import glob
 
-from .modules.gen_functions import formatByteSize,resolvePath,wildCardFileSearch
+from .modules.gen_functions import formatByteSize,resolvePath,wildCardFileSearch,openFolder
 from .modules.blender_utils import showErrorMessageBox
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, CollectionProperty,PointerProperty
@@ -536,7 +536,7 @@ class WM_OT_OpenREAssetLibraryFolder(Operator):
 
 	def execute(self, context):
 		try:
-			os.startfile(bpy.path.abspath(bpy.context.preferences.addons[__name__].preferences.assetLibraryPath))
+			openFolder(bpy.path.abspath(bpy.context.preferences.addons[__name__].preferences.assetLibraryPath))
 		except:
 			pass
 		return {'FINISHED'}
@@ -609,7 +609,7 @@ class WM_OT_OpenFileLocation(Operator):
 					for chunkPath in chunkList:
 						realPath = wildCardFileSearch(glob.escape(os.path.join(chunkPath,filePath))+".*")
 						if realPath != None:
-							os.startfile(os.path.split(realPath)[0])
+							openFolder(os.path.split(realPath)[0])
 							self.report({"INFO"},"Opened file location.")
 							break
 						
@@ -708,7 +708,14 @@ def REAssetPostHandler(lapp_context):
 									print(f"Found asset path")
 									break	
 							if assetPath == None:
-								showErrorMessageBox(item.id.get("assetPath",item.id.name)+" - File not found at any chunk paths.")
+								showErrorMessageBox(item.id.get("assetPath",item.id.name)+" - File not found at any chunk paths. See console for details on how to fix this. (Window > Toggle System Console)")
+								print("\nIf this issue persists, try the following:")
+								print("1: Check for updates to the asset library addon in Edit > Preferences > Addons > RE Asset Library > Check now for re_asset_library update.")
+								print("2: Uninstall any mods installed with Fluffy Manager and validate game files on Steam.")
+								print("3: In the RE Asset Library menu in the asset browser, click Set Game Extract Paths and set the paths again.")
+								print("4: In the RE Asset Library menu in the asset browser, click Reload Pak Cache, then enable Force Extract Files.")
+								print("5: Drag the file onto the 3D view again.")
+								print("If it still does not work again after doing all of the above steps, please screenshot the output of the console when importing something from the asset browser and send it to me.\nAlso make sure you're not trying to extract DLC you don't have installed.\n")
 			
 				if assetPath != None:
 					match assetType:

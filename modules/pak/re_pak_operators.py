@@ -26,7 +26,11 @@ class WM_OT_PromptSetExtractInfo(Operator):
 	   description = "",
 	   default = "",
 	   options = {"HIDDEN"})
-	
+	useAltPrompt : bpy.props.BoolProperty(
+	   name = "",
+	   description = "",
+	   default = False,
+	   options = {"HIDDEN"})
 	def execute(self, context):
 		bpy.ops.re_asset.set_game_extract_paths("INVOKE_DEFAULT",libraryPath = bpy.path.abspath(self.libraryPath))
 		return {'FINISHED'}
@@ -43,8 +47,12 @@ class WM_OT_PromptSetExtractInfo(Operator):
 	def draw(self,context):
 		layout = self.layout
 		if self.libraryPath != "":
-			layout.label(text="The file was not found on your system.")
-			layout.label(text=f"Would you like to set up automatic game file extraction?")
+			if not self.useAltPrompt:
+				layout.label(text="The file was not found on your system.")
+				layout.label(text=f"Would you like to set up automatic game file extraction?")
+			else:
+				layout.label(text="This feature requires the game extract paths to be set.")
+				layout.label(text=f"Set the extraction paths now?")
 
 
 def update_exePath(self, context):
@@ -519,7 +527,7 @@ class WM_OT_OpenExtractFolder(Operator):
 					extractDir = extractInfo["extractPath"]
 					if os.path.isdir(extractDir):
 						try:
-							os.startfile(extractDir)
+							openFolder(extractDir)
 						except:
 							pass
 						
@@ -626,7 +634,7 @@ class WM_OT_CreatePakPatch(Operator):
 				 pass
 			if os.path.isfile(outPath):
 				try:
-					os.startfile(os.path.split(outPath)[0])
+					openFolder(os.path.split(outPath)[0])
 				except:
 					pass
 				bpy.context.scene["lastExportedPatchPak"] = outPath

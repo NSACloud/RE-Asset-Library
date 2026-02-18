@@ -88,6 +88,9 @@ class WM_OT_BatchMDFUpdater(Operator):
 		centerX = region.width // 2
 		centerY = region.height
 		context.window.cursor_warp(centerX,centerY)
+		if "modWorkspace_directory" in bpy.context.scene:
+			self.dirPath = bpy.context.scene["modWorkspace_directory"]
+		
 		return context.window_manager.invoke_props_dialog(self,width = 500,confirm_text = "Update MDF Files")
 
 	

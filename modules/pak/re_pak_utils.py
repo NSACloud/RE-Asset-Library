@@ -9,6 +9,7 @@ import sys
 from multiprocessing import cpu_count
 import subprocess
 from io import BytesIO
+import struct
 timeFormat = "%d"
 
 
@@ -74,7 +75,7 @@ def isModPak(pakPath):
 		with open(pakPath,"rb") as file:
 			pakFile = PakFile()
 			pakFile.header.read(file)
-			result = pakFile.header.majorVersion == 4 and pakFile.header.minorVersion == 0 and pakFile.header.feature == 0 and pakFile.header.fingerprint == 0 and "sub_000.pak" in pakPath
+			result = pakFile.header.majorVersion == 4 and (pakFile.header.minorVersion == 0 or pakFile.header.minorVersion == 1) and pakFile.header.feature == 0 and pakFile.header.fingerprint == 0 and "sub_000.pak" in pakPath
 	return result
 def isEmptyPak(pakPath):#RE RT updates remove old patch paks and replace them with nulled files, causing errors
 	return os.path.getsize(pakPath) == 0
@@ -246,6 +247,8 @@ def createPakCacheFile(pakPriorityList,outPath):
 		print(f"Saved {len(lookupDict)} entries.")
 	print(f"Saved pak cache to {outPath}")
 
+
+
 def readPakCache(pakCachePath):
 	importTimeStart = time.time()
 	with open(pakCachePath,"rb") as file:
@@ -264,9 +267,12 @@ def readPakCache(pakCachePath):
 			stringLength = read_uint(file)
 			pakPathList.append(file.read(stringLength).decode("utf-16le"))
 		
-		lookupDict = {}
+		#lookupDict = {}
 		#print(file.tell())
 		#print("entry Offset")
+		
+		#Old version
+		"""
 		for _ in range(0,entryCount):
 			#print(file.tell())
 			lookupHash = read_uint64(file)
@@ -277,6 +283,18 @@ def readPakCache(pakCachePath):
 				"encryptionType":read_ubyte(file),
 				"pakIndex":read_ushort(file),
 				}
+		"""
+		#About 4x faster
+		entryStruct = struct.Struct("<QQQBBH")
+		lookupDict = {
+		    lookupHash: {
+		        "offset": offset,
+		        "compressedSize": compressedSize,
+		        "compressionType": compressionType,
+		        "encryptionType": encryptionType,
+		        "pakIndex": pakIndex,
+		    } for lookupHash, offset, compressedSize, compressionType, encryptionType, pakIndex in entryStruct.iter_unpack(file.read())
+		}
 		importTimeEnd = time.time()
 		importTime =  importTimeEnd - importTimeStart
 		print(f"Loaded {entryCount} entries.")
@@ -347,7 +365,7 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 		adjacentFilesSet = set()
 		if blenderAssetObj != None:#For imported asset library objects, can't get path before this because the platform is needed
 			filePathList.append(buildNativesPathFromObj(blenderAssetObj,gameInfo,platform))
-			
+			print(f"Blender Asset Path: {buildNativesPathFromObj(blenderAssetObj,gameInfo,platform)}")
 			if blenderAssetObj.get("assetType") == "MESH":
 				#Find related MDF path by generating alternate MDF names and checking it's hash
 				mdfPath = findPakMDFPathFromMeshPath(filePathList[-1], lookupDict, gameInfo["fileVersionDict"].get("MDF2_VERSION",999))
@@ -874,8 +892,9 @@ def extractPakMP(filePathList,pakPathList,outDir,maxThreads = cpu_count()-1,skip
 				
 	
 	
-def createPakPatch(pakDir,outPath):
+def createPakPatch(pakDir,outPath,compress=True,buildManifest = True):
 	fileTypeBlackList = set([".exe",".dll",".pak",".blend",".blend1"])
+	noCompressionExtensions = set([".tex",".png",".jpg",".ini"])#Tex can't be compressed since it uses gdeflate already
 	hasNatives = False
 	for entry in os.scandir(pakDir):
 		if entry.is_dir():
@@ -888,50 +907,95 @@ def createPakPatch(pakDir,outPath):
 		print("\nTo cancel, press CTRL + C.\n")
 		pakFile = PakFile()
 		#compressorZSTD = zstd.ZstdCompressor()
+		fileList = []
 		for root, dirs, files in os.walk(pakDir):
 			for file in files:
 				try:
 					extension = os.path.splitext(file)[1]
 				except:
 					extension = None
-				if extension != None and extension.lower() not in fileTypeBlackList:
+				if extension != None and extension.lower() not in fileTypeBlackList and not file.endswith("MANIFEST.TXT"):#Ignore manifests, write a new one
 					
 					fullPath = os.path.join(root,file)
-					assetPath = os.path.relpath(fullPath,start=pakDir).replace(os.path.sep,"/")
-					pakEntry = PakTOCEntry()
-					pakEntry.hashNameLower = hashUTF16(assetPath.lower())
-					pakEntry.hashNameUpper = hashUTF16(assetPath.upper())
-					
-					if file.startswith("#UNKN#"):#Override hashes for unknown files
-						pakEntry.hashNameLower = int(file.split("#UNKN#")[1].split("-")[0])
-						pakEntry.hashNameUpper = int(file.split("-")[1].split(".")[0])
-					
-					with open(os.path.join(root,file),"rb") as file:
-						pakEntry.fileData = file.read()
-					
-					pakEntry.decompressedSize = len(pakEntry.fileData)
-					
-					#pakEntry.fileData = compressorZSTD.compress(pakEntry.fileData)
-					#pakEntry.compressionType = CompressionTypes.COMPRESSION_TYPE_ZSTD
-					#TODO set pakEntry.attributes and test compression
-					pakEntry.compressedSize = len(pakEntry.fileData)	
-					print(f"{assetPath} - {pakEntry.hashNameLower} - {pakEntry.hashNameUpper}")
-					pakFile.toc.entryList.append(pakEntry)
-				
+					fileList.append(os.path.join(root,file))
+		
+		fileList.sort()
+		if compress:
+			compressorZSTD = zstd.ZstdCompressor()
+		fileCount = len(fileList)
+		if buildManifest:
+			fileCount += 1
 		#Set pak header
 		pakFile.header.majorVersion = 4
 		pakFile.header.minorVersion = 0
-		pakFile.header.entryCount = len(pakFile.toc.entryList)
+		pakFile.header.entryCount = fileCount
 		
-		#Sort pak entries by hash to keep repacking unknown files consistent
-		pakFile.toc.entryList.sort(key = lambda entry: entry.hashNameLower)
+		manifestList = []
+		with open(outPath,"wb") as pakOut:
+			#Calculate offsets
+			pakFile.write(pakOut)
+			#Skip over TOC, will be written later
+			currentOffset = 16 + (48 * fileCount)
+			pakOut.seek(currentOffset)
+			for fullPath in fileList:
+				assetPath = os.path.relpath(fullPath,start=pakDir).replace(os.path.sep,"/")
+				pakEntry = PakTOCEntry()
+				pakEntry.offset = pakOut.tell()
+				fileName = os.path.split(assetPath)[1]
+				pakEntry.hashNameLower = hashUTF16(assetPath.lower())
+				pakEntry.hashNameUpper = hashUTF16(assetPath.upper())
+				
+				if fileName.startswith("#UNKN#"):#Override hashes for unknown files
+					pakEntry.hashNameLower = int(fileName.split("#UNKN#")[1].split("-")[0])
+					pakEntry.hashNameUpper = int(fileName.split("-")[1].split(".")[0])
+				else:
+					manifestList.append(assetPath)
+				
+				with open(fullPath,"rb") as file:
+					fileData = file.read()
+				
+				isCompressed = False
+				pakEntry.decompressedSize = len(fileData)
+				if compress and not any(extension in assetPath.lower() for extension in noCompressionExtensions) and pakEntry.decompressedSize > 128:#Textures are already gdeflate compressed
+					fileData = compressorZSTD.compress(fileData)
+					pakEntry.compressionType = CompressionTypes.COMPRESSION_TYPE_ZSTD
+					pakEntry.attributes = 2
+					isCompressed = True
+				pakEntry.compressedSize = len(fileData)
+				pakOut.write(fileData)
+				print(f"{assetPath} " + (f"(zstd) [{pakEntry.decompressedSize} > {pakEntry.compressedSize} bytes]" if isCompressed else f"(Uncompressed) [{pakEntry.decompressedSize} bytes]"))
+				pakFile.toc.entryList.append(pakEntry)
+			
+			if buildManifest:
+				assetPath = "__MANIFEST/MANIFEST.TXT"
+				manifestList.append(assetPath)
+				pakEntry = PakTOCEntry()
+				pakEntry.offset = pakOut.tell()
+				
+				pakEntry.hashNameLower = hashUTF16(assetPath.lower())
+				pakEntry.hashNameUpper = hashUTF16(assetPath.upper())
+				
+				manifest = BytesIO()
+				for path in manifestList:
+					manifest.write(str(path+"\n").encode("utf-8"))
+				
+				fileData = manifest.getbuffer()
+				pakEntry.decompressedSize = len(fileData)
+				if compress:
+					fileData = compressorZSTD.compress(fileData)
+					pakEntry.compressionType = CompressionTypes.COMPRESSION_TYPE_ZSTD
+					pakEntry.attributes = 2
+				pakEntry.compressedSize = len(fileData)
+				pakOut.write(fileData)
+				#print("Wrote manifest")
+				print(f"{assetPath} " + (f"(zstd) [{pakEntry.decompressedSize} > {pakEntry.compressedSize} bytes]" if compress else f"(Uncompressed) [{pakEntry.decompressedSize} bytes]"))
+				pakFile.toc.entryList.append(pakEntry)
+			pakOut.seek(16)#Seek to end of header
+			pakFile.toc.write(pakOut)
 		
-		#Calculate offsets
-		currentOffset = 16 + (48 * len(pakFile.toc.entryList))
-		for entry in pakFile.toc.entryList:
-			entry.offset = currentOffset
-			currentOffset += entry.compressedSize
-		writePak(pakFile,outPath)
+		
+		
+		#writePak(pakFile,outPath)
 		print(f"Wrote {outPath}")
 	else:
 		print("ERROR: No natives folder in the provided directory. Nothing to pack.")
@@ -1168,11 +1232,63 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 		lookupDict = getPakLookupTable(pakPath)
 		reverseLookupDict = dict()
 		fastMMH3Hasher = FastMMH3()
-		print(f"Hashing {len(filePathList)} paths...")
-		for filePath in progressBar(filePathList, prefix = 'Progress:', suffix = 'Complete', length = 50):
-			lookupHash = pathToPakHashFast(fastMMH3Hasher,filePath)
-			if lookupHash in lookupDict:
-				reverseLookupDict[lookupHash] = filePath
+		
+		#Load manifest with all files contained in pak if present
+		manifestPath = "__MANIFEST/MANIFEST.TXT"
+		lookupHash = pathToPakHashFast(fastMMH3Hasher,manifestPath)
+		newFilePathList = []#Paths from manifest
+		skipFullHash = False
+		if lookupHash in lookupDict:
+			print("Manifest found.")
+			newFilePathList = []
+			with open(pakPath,"rb") as pakStream:
+				reverseLookupDict[lookupHash] = manifestPath
+				entry = lookupDict[lookupHash]
+				pakStream.seek(entry.offset)
+				size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
+				fileData = pakStream.read(size)
+				
+				if entry.encryptionType > 0:
+					#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
+					fileData = decryptResource(fileData)
+				
+				match entry.compressionType:
+					case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
+						#print("Deflate Compression")
+						#fileData = decompressorDeflate.decompress(fileData)
+						fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
+					case CompressionTypes.COMPRESSION_TYPE_ZSTD:
+						#print("ZSTD Compression")
+						fileData = decompressorZSTD.decompress(fileData)
+				
+				
+				with BytesIO(fileData) as tempStream:
+					for line in tempStream.readlines():
+						newFilePathList.append(line.decode("utf-8").strip())
+						#print(newFilePathList[-1])
+		else:
+			print("No manifest found.")
+		 
+		if len(newFilePathList) == len(lookupDict):
+			skipFullHash = True
+			print(f"Loaded {len(newFilePathList)} paths from manifest.")
+			
+			for filePath in newFilePathList:#Determine if all paths in the manifest are correct
+				lookupHash = pathToPakHashFast(fastMMH3Hasher,filePath)
+				if lookupHash in lookupDict:
+					reverseLookupDict[lookupHash] = filePath
+				else:
+					skipFullHash = False
+					break
+
+			
+		if not skipFullHash:
+			filePathList.extend(newFilePathList)
+			print(f"Hashing {len(filePathList)} paths...")
+			for filePath in progressBar(filePathList, prefix = 'Progress:', suffix = 'Complete', length = 50):
+				lookupHash = pathToPakHashFast(fastMMH3Hasher,filePath)
+				if lookupHash in lookupDict:
+					reverseLookupDict[lookupHash] = filePath
 		
 		if gameName == "MHWILDS":#Hack fix for extracting older chain file versions if present
 			for path in filePathList:

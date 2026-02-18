@@ -148,7 +148,7 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 					#print(f"material.materialName")
 					newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
 					#print(newPropNameSet)
-			        
+					
 					oldPropNameSet = set([item.propName for item in material.propertyList])
 					#print(oldPropNameSet)
 					addedPropDifference = newPropNameSet.difference(oldPropNameSet)
@@ -161,7 +161,7 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 									newProp = Property()
 									newProp.propName = propName
 									
-									newProp.value = prop.value[:]
+									newProp.propValue = prop.propValue[:]
 									newProp.padding = prop.padding
 									newProp.frontPadding = prop.frontPadding
 									material.propertyList.append(newProp)
@@ -172,16 +172,32 @@ def batchUpdateMDFFiles(modDirectory,compendiumPath,searchSubdirectories,createB
 						print(f"Removed properties in {material.materialName} material:")
 						material.propertyList = [mat for mat in material.propertyList if mat.propName not in removedPropDifference]
 						print(removedPropDifference)
-						
+					
+					
+					
+					oldPropOrderDict = {prop.propName: index for index, prop in enumerate(material.propertyList)}
+					newPropOrderDict = {prop.propName: index for index, prop in enumerate(sampleMaterial.propertyList)}
+					
+					if oldPropOrderDict != newPropOrderDict:
+						#Reorder properties into order used by new file
+						newPropertyList = []
+						for prop in sampleMaterial.propertyList:#Remake the list in correct order
+							newPropertyList.append(material.propertyList[oldPropOrderDict[prop.propName]])
+						material.propertyList = newPropertyList
+						requiresUpdate = True
+						print(f"Reordered property list of {material.materialName}")
+					
+					
+					
 					#Texture Bindings
 					
 					newBindingNameSet = set([item.textureType for item in sampleMaterial.textureList])
 					#print(newPropNameSet)
-			        
-			        
+					
+					
 					oldBindingNameSet = set([item.textureType for item in material.textureList])
 					#print(oldPropNameSet)
-			        
+					
 					addedBindingDifference = newBindingNameSet.difference(oldBindingNameSet)
 					if len(addedBindingDifference) != 0:
 						requiresUpdate = True
@@ -319,11 +335,11 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 						requiresUpdate = True
 				newPropNameSet = set([item.propName for item in sampleMaterial.propertyList])
 				#print(newPropNameSet)
-		        
-		        
+				
+				
 				oldPropNameSet = set([item.prop_name for item in matData.propertyList_items])
 				#print(oldPropNameSet)
-		        
+				
 				addedPropDifference = newPropNameSet.difference(oldPropNameSet)
 				if len(addedPropDifference) != 0:
 					requiresUpdate = True
@@ -336,7 +352,7 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 								newProp.padding = prop.padding
 								newProp.frontPadding = prop.frontPadding
 								lowerPropName = prop.propName.lower()
-								if  (prop.paramCount == 4 and ("color" in lowerPropName or "_col_" in lowerPropName) and "rate" not in lowerPropName):
+								if (prop.paramCount == 4 and ("color" in lowerPropName or "_col_" in lowerPropName) and "rate" not in lowerPropName):
 									newProp.data_type = "COLOR"
 									newProp.color_value = prop.propValue
 								elif prop.paramCount == 1 and ("Use" in prop.propName or "_or_" in prop.propName or prop.propName.startswith("is")):
@@ -363,16 +379,34 @@ def batchUpdateMDFCollections(compendiumPath,bpy):
 						matData.propertyList_items.remove(index)
 					print(f"Removed properties in {materialObj.name}")
 					print(removedPropDifference)
+				
+				oldPropOrderDict = {prop.prop_name: index for index, prop in enumerate(matData.propertyList_items)}
+				newPropOrderDict = {prop.propName: index for index, prop in enumerate(sampleMaterial.propertyList)}
+				
+				if oldPropOrderDict != newPropOrderDict:
+					#Reorder properties into order used by new file
 					
+					#Reorder the list starting from the last index
+					for key in sorted(newPropOrderDict, key=newPropOrderDict.get, reverse=True):
+						currentIndex = oldPropOrderDict[key]
+						
+						#print(f"Moving {matData.propertyList_items[currentIndex].prop_name} from {currentIndex} to {newPropOrderDict[key]}")
+						matData.propertyList_items.move(currentIndex,newPropOrderDict[key])
+						
+						#Rebuilding the dict like this every loop is super inefficient I know, but it works and the performance impact of it is negligable
+						oldPropOrderDict = {prop.prop_name: index for index, prop in enumerate(matData.propertyList_items)}
+					requiresUpdate = True
+					print(f"Reordered property list of {materialObj.name}")
+				
 				#Texture Bindings
 				
 				newBindingNameSet = set([item.textureType for item in sampleMaterial.textureList])
 				#print(newPropNameSet)
-		        
-		        
+				
+				
 				oldBindingNameSet = set([item.textureType for item in matData.textureBindingList_items])
 				#print(oldPropNameSet)
-		        
+				
 				addedBindingDifference = newBindingNameSet.difference(oldBindingNameSet)
 				if len(addedBindingDifference) != 0:
 					requiresUpdate = True

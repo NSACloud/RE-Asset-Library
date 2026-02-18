@@ -2,7 +2,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.19 (2/11/2026)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
+**V0.20 (2/11/2026)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
 # PSA (READ THIS): 
 
 **The "RE Asset" tab is now located in the "RE Asset Library" menu inside the asset browser.**
@@ -57,9 +57,6 @@ Specs: Ryzen 5 5600x, Writing from Samsung 980 SSD to Samsung 970 EVO SSD.
 This tool scales very well with hard drive and CPU speeds.
 
 It could run even faster with a better CPU and hard drive, as the usage for both was hitting their max.
-
-## Planned Future Updates
- - Support for more file formats, such as animations.
 
 
 ## Requirements
@@ -199,6 +196,14 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.20 - 2/18/2026
+* Fixed issues with the MDF updater on the latest MH Wilds update.
+* Reworked patch pak creation to be faster and use much less memory.
+* Added compression to newly created patch pak files.
+* Improved compatibility with mod patch paks created by RETool.
+* Improved speed of file extraction when dragging assets from the asset browser.
+* Minor bug fixes.
 
 ### V0.19 - 2/11/2026
 * Added support for Monster Hunter Stories 3.

@@ -21,6 +21,8 @@ from .blender_re_asset import getChunkPathList
 from ..blender_utils import showMessageBox
 from ..mdf.re_mdf_updater_utils import generateMaterialCompendium
 from ..rszmini.re_rsz_updater_utils import generateRSZCRCCompendium
+from ..gen_functions import openFolder
+
 
 CRC_INFO_VERSION = 1
 
@@ -1094,10 +1096,10 @@ class WM_OT_ExportCatalogDiff(Operator):
 					addCount += 1
 			print(f"Change Count:{changeCount}")
 			print(f"Add Count:{addCount}")
-			if changeCount != 0:
+			if changeCount != 0 or addCount != 0:
 				with zipfile.ZipFile(diffZipPath, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
 				    zf.writestr(f"Diff_REAssetCatalog_{gameName}_{timestamp}.tsv", stream.getvalue())
-				os.startfile(os.path.split(diffZipPath)[0])
+				openFolder(os.path.split(diffZipPath)[0])
 				
 				#githubURL = generateGitHubIssueURL(
 				#user = "NSACloud",
@@ -1147,7 +1149,7 @@ class WM_OT_PackageREAssetLibrary(Operator):
 				gameName = None
 			print(f"Game Name:{gameName}")
 			if zipLibrary(blendDir, gameName):
-				os.startfile(blendDir)
+				openFolder(blendDir)
 				self.report({"INFO"},"Packaged RE Asset library.")
 			else:
 				self.report({"ERROR"},"Failed to package RE Asset library. See console for details.")
@@ -1307,7 +1309,7 @@ class WM_OT_OpenLibraryFolder(Operator):
 
 	def execute(self, context):
 		try:
-			os.startfile(os.path.split(bpy.context.blend_data.filepath)[0])
+			openFolder(os.path.split(bpy.context.blend_data.filepath)[0])
 		except:
 			pass
 		return {'FINISHED'}
@@ -1316,11 +1318,27 @@ class WM_OT_GenerateMaterialCompendium(Operator):
 	bl_label = "Generate Material Compendium"
 	bl_description = "Generates file containing paths to all material shaders. This is used for the MDF Updater"
 	bl_idname = "re_asset.generate_material_compendium"
-
+	libraryPath : bpy.props.StringProperty(
+	   name = "Library Path",
+	   description = "",
+	   default = "",
+	   options = {"HIDDEN","SKIP_SAVE"})
+	gameName : bpy.props.StringProperty(
+	   name = "Game Name",
+	   description = "",
+	   default = "",
+	   options = {"HIDDEN","SKIP_SAVE"})
 	def execute(self, context):
 		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-			libPath = os.path.split(bpy.context.blend_data.filepath)[0]
+			if self.gameName != "":
+				gameName = self.gameName
+			else:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			
+			if self.libraryPath != "":
+				libPath = self.libraryPath
+			else:
+				libPath = os.path.split(bpy.context.blend_data.filepath)[0]
 			generateMaterialCompendium(libPath,gameName)
 			self.report({"INFO"},"Generated Material Compendium.")
 		except Exception as err:
@@ -1332,11 +1350,27 @@ class WM_OT_GenerateRSZCRCCompendium(Operator):
 	bl_label = "Generate RSZ CRC Compendium"
 	bl_description = "Generates file containing paths to all rsz instance types. This is used for the RSZ CRC Updater"
 	bl_idname = "re_asset.generate_rszcrc_compendium"
-
+	libraryPath : bpy.props.StringProperty(
+	   name = "Library Path",
+	   description = "",
+	   default = "",
+	   options = {"HIDDEN","SKIP_SAVE"})
+	gameName : bpy.props.StringProperty(
+	   name = "Game Name",
+	   description = "",
+	   default = "",
+	   options = {"HIDDEN","SKIP_SAVE"})
 	def execute(self, context):
 		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-			libPath = os.path.split(bpy.context.blend_data.filepath)[0]
+			if self.gameName != "":
+				gameName = self.gameName
+			else:
+				gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
+			
+			if self.libraryPath != "":
+				libPath = self.libraryPath
+			else:
+				libPath = os.path.split(bpy.context.blend_data.filepath)[0]
 			generateRSZCRCCompendium(libPath,gameName)
 			self.report({"INFO"},"Generated CRC Compendium.")
 		except Exception as err:

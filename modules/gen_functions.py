@@ -1,11 +1,14 @@
 #Author: NSA Cloud
-#V6
+#V7
 import os
 import struct
 import glob
 from pathlib import Path
 import platform
+import unicodedata
+import re
 import subprocess
+
 #---General Functions---#
 os.system("color")#Enable console colors
 class textColors:
@@ -63,7 +66,7 @@ def read_double(file_object, endian = '<'):
      return data
 #read null terminated string from file
 def read_string(file_object):
-     data =''.join(iter(lambda: file_object.read(1).decode('ascii'), '\x00'))
+     data =''.join(iter(lambda: file_object.read(1).decode('utf-8'), '\x00'))
      return data
 def read_unicode_string(file_object):#Reads unicode string from file into utf-8 string
 	wchar = file_object.read(2)
@@ -259,7 +262,32 @@ def resolvePath(pathString):
 		if not os.path.isfile(newPath):#Lower case the path in case the pak list is lowercased
 			newPath = newPath.lower()
 			return newPath
-		
+	
+def splitInt64(value):#Takes int64 and converts to 2 int32's
+	return struct.unpack("ii", value.to_bytes(8, "little", signed=False))
+
+def concatInt(a, b):#Combines two int values into a int64
+	return (a << 32) | b
+
+def slugify(value, allow_unicode=False):
+    """
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+    dashes to single dashes. Remove characters that aren't alphanumerics,
+    underscores, or hyphens. Also strip leading and
+    trailing whitespace, dashes, and underscores.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize("NFKC", value)
+    else:
+        value = (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+    value = re.sub(r"[^\w\s-]", "", value)
+    return re.sub(r"[-\s]+", "_", value).strip("-_")
+
 def openFolder(path):
     if platform.system() == "Windows":
         os.startfile(path)

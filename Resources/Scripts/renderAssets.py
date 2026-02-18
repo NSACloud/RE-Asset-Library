@@ -227,11 +227,11 @@ def renderMeshThumbnail(meshPath,outPath,hdriPath):#Use category to determine if
         armatureObj, subMeshList = importREMesh(meshPath,meshImportOptions)
         for subMesh in subMeshList:#Hair rendering fix
             if "fakeao" in subMesh.name.lower() or "fake_ao" in subMesh.name.lower():
-                bpy.data.objects.remove(bpy.data.objects[subMesh.name],do_unlink = True)
+                subMesh.hide_render = True
             if "__emittertarget_01" in subMesh.name.lower():
-                bpy.data.objects.remove(bpy.data.objects[subMesh.name],do_unlink = True)
+                subMesh.hide_render = True
             if "em" in meshPath and "damage" in subMesh.name.lower():
-                bpy.data.objects.remove(bpy.data.objects[subMesh.name],do_unlink = True)
+                subMesh.hide_render = True
     
     except Exception as err:
         print(f"Import error: {meshPath} - {str(err)}")
