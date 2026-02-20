@@ -20,6 +20,7 @@ import queue
 import shutil
 import subprocess
 import glob
+import sys
 
 from .modules.gen_functions import formatByteSize,resolvePath,wildCardFileSearch,openFolder
 from .modules.blender_utils import showErrorMessageBox
@@ -844,5 +845,11 @@ def unregister():
 	except:
 		pass
 	"""
+def open_file(filename):
+    if sys.platform == "win32":
+        os.startfile(filename)
+    else:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.call([opener, filename])
 if __name__ == '__main__':
 	register()
