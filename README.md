@@ -10,6 +10,8 @@
 This Blender addon adds the ability to browse through RE Engine models and other files inside the asset browser.
 ### [Download RE Asset Library](https://github.com/NSACloud/RE-Asset-Library/archive/refs/heads/main.zip)
 
+<img width="1472" height="1070" alt="image" src="https://github.com/user-attachments/assets/345278fd-12b9-4645-9898-293ca42222d2" />
+
 ## Installation/Usage Instructions (2026)
 **The video guide below is outdated.** I will be making a new tutorial soon showing the install/setup process.
 
