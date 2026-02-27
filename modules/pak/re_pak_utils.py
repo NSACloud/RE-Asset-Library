@@ -166,16 +166,18 @@ def findPakMDFPathFromMeshPath(meshPath,lookupDict,mdfVersion,gameName = None):
 		mdfPath = f"{fileRoot}_v00.mdf2.{mdfVersion}"
 		lookupHash = pathToPakHash(mdfPath)
 	
-	if gameName == "RE9" and not lookupHash in lookupDict:
-		if not lookupHash in lookupDict:
-			mdfPath = f"{fileRoot}_00.mdf2.{mdfVersion}"
-			lookupHash = pathToPakHash(mdfPath)
-		if not lookupHash in lookupDict:
-			mdfPath = f"{fileRoot}_01.mdf2.{mdfVersion}"
-			lookupHash = pathToPakHash(mdfPath)
-		if not lookupHash in lookupDict:
-			mdfPath = f"{fileRoot}_02.mdf2.{mdfVersion}"
-			lookupHash = pathToPakHash(mdfPath)
+	if not lookupHash in lookupDict:
+		mdfPath = f"{fileRoot}_00.mdf2.{mdfVersion}"
+		lookupHash = pathToPakHash(mdfPath)
+	if not lookupHash in lookupDict:
+		mdfPath = f"{fileRoot}_01.mdf2.{mdfVersion}"
+		lookupHash = pathToPakHash(mdfPath)
+	if not lookupHash in lookupDict:
+		mdfPath = f"{fileRoot}_02.mdf2.{mdfVersion}"	
+		lookupHash = pathToPakHash(mdfPath)
+	if not lookupHash in lookupDict:
+		mdfPath = f"{fileRoot}_03.mdf2.{mdfVersion}"	
+		lookupHash = pathToPakHash(mdfPath)
 	if not lookupHash in lookupDict:
 		mdfPath = f"{fileRoot}_A.mdf2.{mdfVersion}"
 		lookupHash = pathToPakHash(mdfPath)
