@@ -203,7 +203,7 @@ def zipLibrary(blendDir,gameName):
 	print(f"Thumbnail Directory:{thumbnailDir}")
 	materialCompendiumPath = os.path.join(blendDir,f"MaterialCompendium_{gameName}.json")
 	crcCompendiumPath = os.path.join(blendDir,f"CRCCompendium_{gameName}.json")
-	
+	pakSizeInfoPath = os.path.join(blendDir,f"PakSizeInfo_{gameName}.json")
 	
 	outputPath = os.path.join(blendDir,f"{gameName}.reassetlib")
 	
@@ -241,8 +241,10 @@ def zipLibrary(blendDir,gameName):
 			zf.write(packageInfoPath, arcname=f"{gameName}\packageInfo_{gameName}.json")
 			if os.path.isfile(materialCompendiumPath):
 				zf.write(materialCompendiumPath, arcname=f"{gameName}\MaterialCompendium_{gameName}.json")
-				if os.path.isfile(crcCompendiumPath):
-					zf.write(crcCompendiumPath, arcname=f"{gameName}\CRCCompendium_{gameName}.json")
+			if os.path.isfile(crcCompendiumPath):
+				zf.write(crcCompendiumPath, arcname=f"{gameName}\CRCCompendium_{gameName}.json")
+			if os.path.isfile(pakSizeInfoPath):
+				zf.write(pakSizeInfoPath, arcname=f"{gameName}\PakSizeInfo_{gameName}.json")
 			for file in os.scandir(thumbnailDir):
 		        
 				if file.name.endswith(IMAGE_FORMAT):

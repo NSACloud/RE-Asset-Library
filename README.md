@@ -2,23 +2,79 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.20 (2/11/2026)** | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)
-# PSA (READ THIS): 
+**V0.21 (2/27/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
 
-**The "RE Asset" tab is now located in the "RE Asset Library" menu inside the asset browser.**
-
-<img width="755" height="372" alt="image" src="https://github.com/user-attachments/assets/53573cf4-cbff-4f7c-9694-789fec3800e6" />
-
-**Also, you can create an asset browser workspace by going to File > New > RE Assets.**
 ---
 **BETA RELEASE, THERE MAY BE BUGS**
 
 This Blender addon adds the ability to browse through RE Engine models and other files inside the asset browser.
 ### [Download RE Asset Library](https://github.com/NSACloud/RE-Asset-Library/archive/refs/heads/main.zip)
 
-**Video Guide**
+## Installation/Usage Instructions (2026)
+**The video guide below is outdated.** I will be making a new tutorial soon showing the install/setup process.
 
+For now, follow the written instructions below.
+
+Make sure you have [Blender 4.3.2 or higher](https://www.blender.org/download/).
+
+Download the addon from the **Download RE Asset Library** link at the top or **click Code > Download Zip**.
+
+Download [RE Mesh Editor](https://github.com/NSACloud/RE-Mesh-Editor) and [RE Chain Editor](https://github.com/NSACloud/RE-Chain-Editor) also.
+
+In Blender, go to Edit > Preferences > Addons, then click the arrow in the top right of the addon menu and choose **Install From Disk**.
+
+<img width="877" height="321" alt="image" src="https://github.com/user-attachments/assets/60a4e041-30fe-4d34-a1f8-33b9634fef14" />
+
+Navigate to the downloaded zip file for each addon and click **Install Addon**. Be sure to check the box next to each addon after installing. The addon should then be usable.
+
+To download asset libraries, use the **Download RE Asset Libraries** button in the addon preferences under RE Asset Library.
+
+<img width="878" height="356" alt="image" src="https://github.com/user-attachments/assets/592ecb9c-e359-4d1e-83bc-ef123e641080" />
+
+A window will be shown. You can choose which game to download the asset library for from the drop down menu at the top.
+
+![image](https://github.com/user-attachments/assets/ce165494-863d-4b03-887c-780e5ef07050)
+
+After clicking download, a new blend file will be opened and thumbnails will be assigned to files.
+
+This can take a minute for the first time depending on the speed of your PC and size of the library.
+
+Once it finishes, you can access the asset library from the asset browser. If it doesn't show up, try restarting Blender.
+
+To open the asset browser, click **File > New > RE Assets**.
+
+In the asset browser in the bottom half of the screen, change the library from **All Libraries** to whichever asset library you downloaded.
+
+<img width="644" height="369" alt="image" src="https://github.com/user-attachments/assets/a80126a4-f3f2-495c-ba8e-e35def702405" />
+
+
+Open the **RE Asset Library** menu and click **Set Game Extract Paths**. Set **Game EXE File Path** to the main .exe file for your game. 
+
+You can find it in Steam by right clicking the game > **Manage** > **Browse Local Files.**
+
+<img width="1417" height="425" alt="image" src="https://github.com/user-attachments/assets/1f9d6bc3-6a30-4cc8-8e3a-6af203a8625b" />
+
+Once you press OK, everything will be set up and you can drag models in from the asset browser to import them.
+
+<img width="1281" height="902" alt="image" src="https://github.com/user-attachments/assets/eef2c71e-7aa5-40eb-a32a-5d645a440cdb" />
+
+If you want to extract game files other than models, open the RE Asset Library menu in the asset browser and choose **Extract Game Files**.
+
+> [!TIP]
+> If you don't want to extract the whole game, extracting only **Model Related Files**, **Prefab Files** and **User Files** is usually enough for most modding purposes. 
+
+<img width="1301" height="604" alt="image" src="https://github.com/user-attachments/assets/bc19ed63-dee2-426d-9da3-3d93f1803ccf" />
+
+### Updating the Addon and Asset Libraries
+
+To update this addon, navigate to Preferences > Add-ons > RE Asset Library and press the "Check for update" button.
+
+To update asset libraries for each game, select the asset library in the asset browser and click the "Check For Library Update" button in the "RE Asset Library" menu.
+<details>
+<summary>Video Guide - OUTDATED</summary>
+ 
 [![RE Asset Library Yotube Video Guide](https://github.com/user-attachments/assets/9799239b-e676-42e6-83fe-3679ac1d2103)](https://www.youtube.com/watch?v=jLM3wbEFANg)
+</details>
 
 ## Features
  - Game files can be extracted automatically as assets are imported.
@@ -26,38 +82,6 @@ This Blender addon adds the ability to browse through RE Engine models and other
  - Asset libraries can be downloaded directly in Blender through the addon.
  - Users can submit the changes they make to names, categories and tags to be included in a future update.
  - New asset libraries can be created by providing an RE Tool list file.
-
-## File Extraction
-
-This addon allows for files to be unpacked from the game's chunk files as they're imported. Meaning you don't have to waste dozens of gigabytes on files you don't need.
-
-![image](https://github.com/user-attachments/assets/99fbce1f-3281-4c7d-8f8f-d619b1cd438b)
-
-It also supports selective extraction, so you can extract all files of a certain category or only extract certain pak files.
-
-No list file is required, just download an asset libary, set the path to the game's exe file and extract.
-
-In addition, this tool is extremely fast at extracting files compared to all of the other tools.
-
-### Performance Benchmarks
-
-This tool puts all other pak extraction tools to shame in terms of speed.
-
-**Pak Extraction Times**
-
-* RETool - 24m:05s (Written in C++)
-* ree-unpacker - 4m:51s (Written in C#)
-* ree-pak-cli - 2m:19s (Written in Rust)
-* RE Asset Library - 1m:06s (Written in Python)
-
-Test run on Monster Hunter Rise's re_chunk_000.pak. (42.8 GB, 158,791 Files)
-
-Specs: Ryzen 5 5600x, Writing from Samsung 980 SSD to Samsung 970 EVO SSD.
-
-This tool scales very well with hard drive and CPU speeds.
-
-It could run even faster with a better CPU and hard drive, as the usage for both was hitting their max.
-
 
 ## Requirements
 
@@ -71,55 +95,6 @@ It could run even faster with a better CPU and hard drive, as the usage for both
 
  [Asset Library Collection Repository](https://github.com/NSACloud/RE-Asset-Library-Collection?tab=readme-ov-file#current-library-status)
 
- More libraries will be added to the repository in the future.
-
-
-## Installation
-Download the addon from the "Download RE Asset Library" link at the top or click Code > Download Zip.
-
-In Blender, go to Edit > Preferences > Addons, then click "Install" in the top right.
-
-The install button is found by clicking the arrow in the top right of the addon menu.
-
-![image](https://github.com/user-attachments/assets/49dd95c1-9a20-49d8-af55-7160d54836df)
-
-Navigate to the downloaded zip file for this addon and click "Install Addon". The addon should then be usable.
-
-To update this addon, navigate to Preferences > Add-ons > RE Asset Library and press the "Check for update" button.
-
-
-
-## Downloading Asset Libraries
-
-To download asset libraries, use the "Download RE Asset Libraries" button in the addon preferences.
-
-![image](https://github.com/user-attachments/assets/4e50f9f1-83f1-41fb-9c84-1b60c860c641)
-
-A window will be shown. You can choose which game to download the asset library for from the drop down menu at the top.
-
-![image](https://github.com/user-attachments/assets/ce165494-863d-4b03-887c-780e5ef07050)
-
-After clicking download, a new blend file will be opened and thumbnails will be assigned to files.
-
-This can take a minute for the first time depending on the speed of your PC and size of the library.
-
-Once it finishes, you can close the new blend file that opened.
-
-Now you can access that library via the Asset Browser in any blend file.
-
-> [!TIP]
-> You can set up an asset workspace quickly by clicking File > New > RE Assets. 
-
-## Set Chunk Paths
-
-This addon uses the chunk paths set in the RE Mesh Editor addon preferences to search for files.
-
-This is usually set automatically when a mesh file is imported from an extracted pak file.
-
-![image](https://github.com/user-attachments/assets/ead76cee-37ac-4e87-92c3-3386feffb2b2)
-
-If the path for your game is not set, add a new chunk path for it.
-Choose the game and set the path to the natives\STM\ folder. (See above for reference)
 
 ## FAQ
 
@@ -174,9 +149,11 @@ Choose the game and set the path to the natives\STM\ folder. (See above for refe
 
 **For additional help, go here:**
 
+[RE Engine Modding Wiki](https://github.com/Havens-Night/REEngine-Modding-Documentation)
+
 [Monster Hunter Modding Discord](https://discord.gg/gJwMdhK)
 
-[Modding Haven Discord](https://discord.gg/modding-haven-718224210270617702)
+[Haven's Night Discord](https://discord.gg/modding-haven-718224210270617702)
 
 # NO GAME ASSETS ARE INCLUDED WITH THIS ADDON
 **This addon and any downloaded asset libraries do not contain any game assets. You must own the games and have them installed.**
@@ -196,6 +173,12 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.21 - 2/27/2026
+* Added Resident Evil 9 support.
+* Simplified the Extract Game Files window. It now lets you pick specific types of files to extract.
+* Extract Game Files now shows the amount of space required to extract the selected files.
+* Force Extract Files is now enabled by default. This is to avoid issues if only the meshes are extracted.
 
 ### V0.20 - 2/18/2026
 * Fixed issues with the MDF updater on the latest MH Wilds update.

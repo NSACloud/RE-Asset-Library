@@ -12,7 +12,6 @@ from io import BytesIO
 import struct
 timeFormat = "%d"
 
-
 from ..gen_functions import progressBar,formatByteSize,read_ubyte,read_ushort,read_uint,read_uint64,write_ubyte,write_ushort,write_uint,write_uint64
 
 from .file_re_pak import ReadPakTOC,PakFile,PakTOCEntry,writePak
@@ -24,6 +23,30 @@ from ..rszmini.re_rsz_utils import getRSZResourcePaths
 from ..mdf.file_re_mdf import MDFFile
 
 STREAMING_FILE_TYPE_SET = frozenset([".mesh",".abcmesh",".stmesh",".tex",".sbnk",".bnk",".pck",".spck",".vsrc",".mov",".mpci"])
+
+def getPakFileTypeCategoryDict():
+	FILE_TYPE_CATEGORY_DICT = {
+		"Model Files":set(["mesh","stmesh","gtl","strands"]),
+		"Model Related Files":set(["mdf2","chain","chain2","clsp","sfur","gpuc","gpus","vmap","ziva","zivacomb","jntexprgraph","jcns","fbxskel","refskel","skeleton","jmap","mpci","sbd","cfil"]),#MMTR not included because it's big, most people wont need it and it can't really be edited
+		"Texture Files":set(["tex"]),
+		"Animation Files":set(["mot","clip","motlist","motfsm","motfsmv2","motfsm2","motbank","mcambank","mcamlist","ucurve","ucurvelist","bhvt","fsmv2","tmlfsm2","tmlbld"]),
+		"User Files":set(["user"]),
+		"Prefab Files":set(["pfb"]),
+		"Scene Files":set(["scn"]),
+		#"Collider Files":set(["mcol","rcol"]),
+		"Text Files":set(["msg"]),
+		"Effect Files":set(["efx"]),
+		"Audio Files":set(["bnk","pck","spck","sbnk","wcbk","wcc","wcp","wel"]),
+		"Video Files":set(["mov"]),
+		"Other Files":set(["gui","mmtr"]),#Any files that don't fit a category will be extracted in other files
+		}
+	
+	fileTypeToCategoryDict = dict()
+	for entry in FILE_TYPE_CATEGORY_DICT:
+		for ext in FILE_TYPE_CATEGORY_DICT[entry]:
+			fileTypeToCategoryDict[ext] = entry
+			
+	return fileTypeToCategoryDict
 
 class CompressionTypes:
 	COMPRESSION_TYPE_NONE = 0
@@ -142,6 +165,17 @@ def findPakMDFPathFromMeshPath(meshPath,lookupDict,mdfVersion,gameName = None):
 	if not lookupHash in lookupDict:
 		mdfPath = f"{fileRoot}_v00.mdf2.{mdfVersion}"
 		lookupHash = pathToPakHash(mdfPath)
+	
+	if gameName == "RE9" and not lookupHash in lookupDict:
+		if not lookupHash in lookupDict:
+			mdfPath = f"{fileRoot}_00.mdf2.{mdfVersion}"
+			lookupHash = pathToPakHash(mdfPath)
+		if not lookupHash in lookupDict:
+			mdfPath = f"{fileRoot}_01.mdf2.{mdfVersion}"
+			lookupHash = pathToPakHash(mdfPath)
+		if not lookupHash in lookupDict:
+			mdfPath = f"{fileRoot}_02.mdf2.{mdfVersion}"
+			lookupHash = pathToPakHash(mdfPath)
 	if not lookupHash in lookupDict:
 		mdfPath = f"{fileRoot}_A.mdf2.{mdfVersion}"
 		lookupHash = pathToPakHash(mdfPath)
@@ -1466,3 +1500,82 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 				
 	else:
 		raise Exception("Pak path does not exist.")
+
+def getGamePakSize(libDir,gameName):
+	extractInfoPath = os.path.join(libDir,f"ExtractInfo_{gameName}.json")
+	fileSizeDumpPath = os.path.join(libDir,f"PakSizeInfo_{gameName}.json")
+	pakSizeDict = {}
+	if os.path.isfile(extractInfoPath):
+		try:
+			with open(extractInfoPath,"r", encoding ="utf-8") as file:
+				extractInfo = json.load(file)
+				platform = extractInfo["platform"]
+				gameDir = os.path.split(extractInfo["exePath"])[0]
+		except:
+			raise Exception(f"Failed to load {extractInfoPath}")
+		
+	else:
+		raise Exception("Extract paths are not set.")
+		return {'CANCELLED'}
+	
+	gameInfoPath = os.path.join(libDir,f"GameInfo_{gameName}.json")
+	if not os.path.isfile(gameInfoPath):
+		raise Exception(f"GameInfo_{gameName}.json is missing.")
+	catalogPath = os.path.join(libDir,f"REAssetCatalog_{gameName}.tsv")
+	print(f"Catalog Path: {catalogPath}")
+	
+	if not os.path.isfile(catalogPath):
+		raise Exception(f"GameInfo_{gameName}.json is missing.")
+	gameInfo = loadGameInfo(gameInfoPath)
+	filePathList = []
+	filePathList.extend(extraPathList)
+	unpackStartTime = time.time()
+	for row in [entry for entry in loadREAssetCatalogFile(catalogPath)]:
+		nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION","999"), platform)
+		filePathList.append(nativesPath)
+		#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
+		if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
+			#No need to verify if the path exists, that will be done when they're hashed
+			streamingPath = nativesPath.replace(f"natives/{platform}/",f"natives/{platform}/streaming/")
+			#print(streamingPath)
+			filePathList.append(streamingPath)
+	pakPathList = scanForPakFiles(gameDir)
+	if not os.path.isdir(gameDir):
+		raise Exception("Invalid exe path, game directory does not exist")
+	
+	print(f"Hashing {len(filePathList)} paths...")
+	fastMMH3Hasher = FastMMH3()
+	fileLookupDict = dict()
+	for filePath in progressBar(filePathList, prefix = 'Progress:', suffix = 'Complete', length = 50):
+		lookupHash = pathToPakHashFast(fastMMH3Hasher,filePath)
+		fileLookupDict[lookupHash] = filePath	
+	filePathList.clear()
+	fullHashSet = set(fileLookupDict.keys())
+	
+	fileTypeCategoryDict = getPakFileTypeCategoryDict()
+	
+	for pakPath in pakPathList:
+		
+		if os.path.isfile(pakPath):
+			currentPakSizeDict = {"totalUncompressedSize":0,"categories":{cat:0 for cat in sorted(list(set(fileTypeCategoryDict.values())))}}
+			print(f"Reading {pakPath}...")
+			lookupDict = getPakLookupTable(pakPath)
+			pakHashSet = set(lookupDict.keys())
+			
+			matchedHashSet = pakHashSet & fullHashSet
+			#print(f"{len(matchedHashSet)} paths found.")
+			for pakHash in matchedHashSet:
+				filePath = fileLookupDict[pakHash]
+				fileExt = filePath.split(".",1)[1].split(".")[0]
+				pakEntry = lookupDict[pakHash]
+				fileCategory = fileTypeCategoryDict.get(fileExt,"Other Files")
+				#if fileCategory == "Other Files":
+					#print(fileExt)
+				currentPakSizeDict["categories"][fileCategory] += pakEntry.decompressedSize
+			
+			currentPakSizeDict["totalUncompressedSize"] = sum(currentPakSizeDict["categories"].values())
+			pakSizeDict[os.path.relpath(pakPath,start = gameDir)] = currentPakSizeDict
+					
+	with open(fileSizeDumpPath,"w", encoding ="utf-8") as outFile:
+		json.dump(pakSizeDict,outFile,indent=4, sort_keys=False,separators=(',', ': '))
+		print(f"Wrote {os.path.split(fileSizeDumpPath)[1]}")

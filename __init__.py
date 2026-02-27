@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 20),
+	"version": (0, 21),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -180,8 +180,8 @@ class REAssetPreferences(AddonPreferences):
 	   default = True)
 	forceExtract : BoolProperty(
 	   name = "Force Extract Files",
-	   description = "When dragging an asset from the browser, force files to be extracted from the game files.\nUse this option when there's a game update and you need the latest version of a file.\nAlso enable this if you're getting missing/red textures when importing models.",
-	   default = False)
+	   description = "When dragging an asset from the browser, force files to be extracted from the game files.\nUse this option when there's a game update and you need the latest version of a file.\nAlso enable this if you're getting missing/red textures when importing models.\nThis makes importing files slower but will ensure that nothing is missing or outdated",
+	   default = True)
 	
 	fileTypeWhiteList_items: bpy.props.CollectionProperty(type=REAssetWhiteListEntryPropertyGroup)
 	fileTypeWhiteList_index: bpy.props.IntProperty(name="")
@@ -414,7 +414,7 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 	gameName: EnumProperty(
 		name="",
 		description="Set which game to create the library for",
-		items= [ 
+		items= [
 		("DMC5", "Devil May Cry 5", ""),
 		("RE2", "Resident Evil 2", ""),
 		("RE3", "Resident Evil 3", ""),
@@ -432,6 +432,7 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 		("PRAG", "Pragmata", ""),
 		("MHWILDS", "Monster Hunter Wilds", ""),
 		("MHS3", "Monster Hunter Stories 3", ""),
+		("RE9", "Resident Evil 9", ""),#TODO Update this to pull the active game enum directly from the mesh editor mdf property group
 		]
     )
 	listPath: StringProperty(

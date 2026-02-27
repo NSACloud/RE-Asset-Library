@@ -10,9 +10,9 @@ from ..blender_utils import showMessageBox
 from ..asset.re_asset_utils import getFileCRC,loadREAssetCatalogFile,buildNativesPathFromCatalogEntry
 from ..asset.blender_re_asset import addChunkPath
 from ..asset.re_asset_operators import getAssetBlendPathFromAssetBrowser
-from .re_pak_utils import loadGameInfo,scanForPakFiles,createPakCacheFile,extractPakMP,STREAMING_FILE_TYPE_SET,createPakPatch,extractModPak
+from .re_pak_utils import loadGameInfo,scanForPakFiles,createPakCacheFile,extractPakMP,STREAMING_FILE_TYPE_SET,createPakPatch,extractModPak,getGamePakSize,getPakFileTypeCategoryDict
 from .re_pak_propertyGroups import ToggleStringPropertyGroup
-from ..gen_functions import openFolder
+from ..gen_functions import openFolder,formatByteSize
 
 
 class WM_OT_PromptSetExtractInfo(Operator):
@@ -154,9 +154,10 @@ class WM_OT_SetExtractInfo(Operator):
 						json.dump(extractInfoDict,outFile)
 						print(f"Wrote {os.path.split(extractInfoPath)[1]}")
 					
-					
 					addChunkPath(chunkPath=os.path.join(newDirPath,"natives",self.platform),gameName = gameName)
-					
+					if not os.path.isfile(os.path.join(libDir,"PakSizeInfo_{gameName}.json")):
+						print("Calculating pak sizes...")
+						getGamePakSize(libDir,gameName)
 					showMessageBox("Game extraction set up completed.",title="Set Game Extract Paths")
 					
 				else:
@@ -246,6 +247,55 @@ def update_uncheckAllPaks(self, context):
 			item.enabled = False
 		self.uncheckAllPaks = False
 
+def update_recalcPakSize(self, context):
+	if self.recalcPakSize == True:
+		self.recalcPakSize = False
+		libDir = os.path.split(self.catalogPath)[0]
+		pakSizeInfoPath = os.path.join(libDir,f"PakSizeInfo_{self.gameName}.json")
+		if not os.path.isfile(pakSizeInfoPath) and os.path.isdir(libDir):
+			print("Calculating pak sizes...")
+			getGamePakSize(libDir, self.gameName)
+		pakSizeDict = dict()
+		
+		if os.path.isfile(pakSizeInfoPath):
+			try:
+				with open(pakSizeInfoPath,"r", encoding ="utf-8") as file:
+					pakSizeDict = json.load(file)
+			except Exception as e:
+				raise Exception(f"Failed to load {pakSizeInfoPath} - {e}")
+		totalSize = 0
+		
+		enabledCategorySet = set()
+		for item in self.categoryList_items:
+			if item.enabled:
+				enabledCategorySet.add(item.path)
+		enabledPakSet = set()
+		catSizeDict = dict()
+		#Gather all enabled paks and get their size based on which categories are checked
+		for item in self.pakList_items:
+			
+			if item.path in pakSizeDict:
+				currentSize = 0
+				for cat in enabledCategorySet:
+					if cat in pakSizeDict[item.path]["categories"]:
+						currentSize += pakSizeDict[item.path]["categories"][cat]
+				item.fileSize = str(currentSize)
+			else:
+				item.fileSize = "0"
+			if item.enabled:
+				enabledPakSet.add(item.path)
+		#Gather all categories and get their size based on which paks are checked
+		for item in self.categoryList_items:
+			currentSize = 0
+			for pak in enabledPakSet:
+				if pak in pakSizeDict:
+					if item.path in pakSizeDict[pak]["categories"]:
+							currentSize += pakSizeDict[pak]["categories"][item.path]
+							if item.enabled:
+								totalSize += pakSizeDict[pak]["categories"][item.path]
+			item.fileSize = str(currentSize)
+		self.totalSpaceRequired = str(totalSize)
+	
 
 class WM_OT_ExtractGameFiles(Operator):
 	bl_label = "Extract Game Files"
@@ -285,7 +335,11 @@ class WM_OT_ExtractGameFiles(Operator):
 	   description = "",
 	   default = "",
 	   options = {"HIDDEN"})
-	
+	totalSpaceRequired : bpy.props.StringProperty(
+	   name = "totalSpaceRequired",
+	   description = "",
+	   default = "0",
+	   options = {"HIDDEN"})
 	categoryList_items: bpy.props.CollectionProperty(type = ToggleStringPropertyGroup)
 	categoryList_index: bpy.props.IntProperty(name="")
 	
@@ -322,6 +376,17 @@ class WM_OT_ExtractGameFiles(Operator):
 	   default = False,
 	   update = update_uncheckAllPaks
 	   )
+	recalcPakSize : bpy.props.BoolProperty(
+	   name = "Refresh Required Storage Amounts",
+	   description = "Updates the displayed storage requirements based on which categories and paks are selected.\nMay take a moment to refresh if this is the first time pak sizes are being checked",
+	   default = False,
+	   update = update_recalcPakSize
+	   )
+	openExtractFolder : bpy.props.BoolProperty(
+	   name = "Open Extract Folder When Finished",
+	   description = "Once the pak files are finished extracting, open the extract folder in File Explorer",
+	   default = True,
+	   )
 	def execute(self, context):
 		print("Processing selected paks and categories...")
 		pakPathList = []
@@ -340,25 +405,38 @@ class WM_OT_ExtractGameFiles(Operator):
 		
 		gameInfo = loadGameInfo(self.gameInfoPath)
 		filePathList = []
-		for row in [entry for entry in loadREAssetCatalogFile(self.catalogPath) if entry[2] in checkedCategorySet]:
-			nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION",999), self.platform)
-			filePathList.append(nativesPath)
-			#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
-			if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
-				#No need to verify if the path exists, that will be done when they're hashed
-				streamingPath = nativesPath.replace(f"natives/{self.platform}/",f"natives/{self.platform}/streaming/")
-				#print(streamingPath)
-				filePathList.append(streamingPath)
+		
+		enabledCategorySet = set()
+		for item in self.categoryList_items:
+			if item.enabled:
+				enabledCategorySet.add(item.path)
+		
+		fileTypeCategoryDict = getPakFileTypeCategoryDict()
+		for row in [entry for entry in loadREAssetCatalogFile(self.catalogPath)]:
+			fileExt = row[0].split(".",1)[1].split(".")[0]
+			fileCategory = fileTypeCategoryDict.get(fileExt,"Other Files")
+			if fileCategory in enabledCategorySet:
+				nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION",999), self.platform)
+				
+				filePathList.append(nativesPath)
+				#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
+				if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
+					#No need to verify if the path exists, that will be done when they're hashed
+					streamingPath = nativesPath.replace(f"natives/{self.platform}/",f"natives/{self.platform}/streaming/")
+					#print(streamingPath)
+					filePathList.append(streamingPath)
 		try: 
 			bpy.ops.wm.console_toggle()
 		except:
 			 pass
 		extractPakMP(filePathList, pakPathList, self.outDir)
+		if self.openExtractFolder:
+			openFolder(self.outDir)
 		try: 
 			bpy.ops.wm.console_toggle()
 		except:
 			 pass
-		showMessageBox("Extracted game files.")
+		showMessageBox("Extracted game files.",title = "Extract Game Files")
 		self.report({"INFO"},"Extracted game files.")
 		return {'FINISHED'}
 	@classmethod
@@ -415,18 +493,32 @@ class WM_OT_ExtractGameFiles(Operator):
 		self.catalogPath = os.path.join(blendDir,f"REAssetCatalog_{gameName}.tsv")
 		print(f"Catalog Path: {self.catalogPath}")
 		if os.path.isfile(self.catalogPath):
-			categoryList = {row[2] for row in loadREAssetCatalogFile(self.catalogPath)}#Get set of categories to remove duplicates
-			#Sort list to put file type categories at the bottom
-			fileTypeList = []
-			for entry in categoryList:
-				if " Files" in entry:
-					fileTypeList.append(entry)
-					
-			for entry in fileTypeList:
-				categoryList.remove(entry)
+			#Get category sizes
+			pakSizeInfoPath = os.path.join(blendDir,f"PakSizeInfo_{gameName}.json")
 			
-			categoryList = sorted(list(categoryList))
-			categoryList.extend(sorted(fileTypeList))
+			#This adds a big hitch to pressing extract game files so it's disabled. I think it's better just to let the pak sizes be 0 and let the user refresh it themself
+			"""
+			if not os.path.isfile(pakSizeInfoPath):
+				print("Calculating pak sizes...")
+				getGamePakSize(blendDir, gameName)
+			"""
+			pakSizeDict = dict()
+			
+			if os.path.isfile(pakSizeInfoPath):
+				try:
+					with open(pakSizeInfoPath,"r", encoding ="utf-8") as file:
+						pakSizeDict = json.load(file)
+				except Exception as e:
+					raise Exception(f"Failed to load {pakSizeInfoPath} - {e}")
+			totalSize = 0
+			categoryList = sorted(list(set(getPakFileTypeCategoryDict().values())))
+			categorySizeDict = {cat:0 for cat in categoryList}
+			for pak in pakSizeDict:#Add up the sizes of all categories in all paks
+				for cat in categoryList:
+					if cat in pakSizeDict[pak]["categories"]:
+						categorySizeDict[cat] += pakSizeDict[pak]["categories"][cat]
+						totalSize += pakSizeDict[pak]["categories"][cat]
+			
 			self.categoryList_items.clear()
 			for entry in categoryList:
 				item = self.categoryList_items.add()
@@ -434,12 +526,18 @@ class WM_OT_ExtractGameFiles(Operator):
 					item.path = "Uncategorized Files"
 				else:
 					item.path = entry
-			
+					
+				if item.path in categorySizeDict:
+					item.fileSize = str(categorySizeDict[item.path])
+				
 			self.pakList_items.clear()
 			for entry in pakPriorityList:
 				newPath = os.path.relpath(entry,self.gameDir)#Start paths from game dir
 				item = self.pakList_items.add()
 				item.path = newPath
+				if item.path in pakSizeDict:
+					item.fileSize = str(pakSizeDict[item.path]["totalUncompressedSize"])
+			self.totalSpaceRequired = str(totalSize)
 				
 		else:
 			self.report({"ERROR"},"Asset catalog missing.")
@@ -455,7 +553,7 @@ class WM_OT_ExtractGameFiles(Operator):
 	def draw(self,context):
 		layout = self.layout
 		layout = self.layout
-		rowCount = 8
+		rowCount = 12
 		uifontscale = 9 * context.preferences.view.ui_scale
 		max_label_width = int((EXTRACT_WINDOW_SIZE*(1-SPLIT_FACTOR)*(2-SPLIT_FACTOR)) // uifontscale)
 		layout.label(text=f"Game: {self.gameName}")
@@ -466,7 +564,7 @@ class WM_OT_ExtractGameFiles(Operator):
 		col1_1 = row.column()
 		col1_2 = row.row()
 		col1_2.alignment = "RIGHT"
-		col1_1.label(text = f"Category Count: {str(len(self.categoryList_items))}")
+		col1_1.label(text = f"Category Count: {str(len(self.categoryList_items))} ({sum(1 for item in self.categoryList_items if item.enabled)} selected)")
 		col1_2.prop(self,"checkAllCategories",icon="CHECKMARK", icon_only=True)
 		col1_2.prop(self,"uncheckAllCategories",icon="X", icon_only=True)
 		col1.template_list(
@@ -483,7 +581,7 @@ class WM_OT_ExtractGameFiles(Operator):
 		col2_1 = row.column()
 		col2_2 = row.row()
 		col2_2.alignment = "RIGHT"
-		col2_1.label(text = f"Pak Count: {str(len(self.pakList_items))}")
+		col2_1.label(text = f"Pak Count: {str(len(self.pakList_items))} ({sum(1 for item in self.pakList_items if item.enabled)} selected)")
 		col2_2.prop(self,"checkAllPaks",icon="CHECKMARK", icon_only=True)
 		col2_2.prop(self,"uncheckAllPaks",icon="X", icon_only=True)
 		col2.template_list(
@@ -498,7 +596,16 @@ class WM_OT_ExtractGameFiles(Operator):
 			)
 		
 		layout.separator()
-		layout.prop(self,"skipUnknowns")
+		#layout.prop(self,"skipUnknowns")#Hidden since it doesn't work as intended
+		if self.gameName == "RE9" or self.gameName == "PRAG" or self.gameName == "MHS3":
+			layout.label(icon="ERROR", text = "NOTE: Audio and video files currently do not extract correctly for this game.")
+			
+		row = layout.row()
+		row.alignment = "LEFT"
+		row.label(text = f"Approximate Total Required Storage Space: {formatByteSize(int(self.totalSpaceRequired))}")
+		row.prop(self,"recalcPakSize",icon="FILE_REFRESH", icon_only=True)
+		layout.label(text = f"Size is calculated based on the size reported by the game files which isn't always accurate. The actual amount may be less.")
+		layout.prop(self,"openExtractFolder")
 class WM_OT_OpenExtractFolder(Operator):
 	bl_label = "Open Extract Folder"
 	bl_description = "Opens the folder extracted game files are saved to."
@@ -571,6 +678,8 @@ class WM_OT_ReloadPakCache(Operator):
 							pakPriorityList.reverse()#Reverse the list so that the newest paths are cached first
 							pakCachePath = os.path.join(blendDir,f"PakCache_{gameName}.pakcache")
 							createPakCacheFile(pakPriorityList,pakCachePath)
+							print("Calculating pak sizes...")
+							getGamePakSize(blendDir,gameName)
 							self.report({"INFO"},"Reloaded cached pak info.")
 						else:
 							self.report({"ERROR"},"No pak files found in game directory.")
@@ -663,10 +772,7 @@ class WM_OT_CreatePakPatch(Operator):
 							print(f"Set pak dir:{self.pakDir}")
 					except:
 						pass
-		region = bpy.context.region
-		centerX = region.width // 2
-		centerY = region.height
-		context.window.cursor_warp(centerX,centerY)
+		
 		return context.window_manager.invoke_props_dialog(self,width = 650)
 	def draw(self,context):
 		layout = self.layout

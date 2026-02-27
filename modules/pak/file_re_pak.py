@@ -160,6 +160,7 @@ class PakHeader():
 		self.entryCount = read_uint(file)
 		self.fingerprint = read_uint(file)
 		
+		self.featureUseUnknRE9Data = bool((self.feature >> 2) & 1)
 		self.featureIsTOCEncrypted = bool((self.feature >> 3) & 1)
 		self.featureUseUnknTable = bool((self.feature >> 4) & 1)
 		self.featureUseRemapTable = bool((self.feature >> 5) & 1)
@@ -231,6 +232,8 @@ class PakFile():
 			remapTableOffset = 16 + self.header.entryCount * 48
 			if self.header.featureUseUnknTable:
 				remapTableOffset += 4#Skip unkn table
+			if self.header.featureUseUnknRE9Data:
+				remapTableOffset += 9#Skip unkn data
 			if self.header.featureIsTOCEncrypted:
 				remapTableOffset += 128#Encryption key size
 			#print(f"Remap table offset: {remapTableOffset}")

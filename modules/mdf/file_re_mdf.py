@@ -20,7 +20,8 @@ gameNameMDFVersionDict = {
 	#40:"DR",
 	45:"MHWILDS",
 	46:"ONI2",
-	51:"PRAG",
+	#51:"PRAG",
+	51:"RE9",
 	
 	"DMC5":10,
 	"RE2":10,
@@ -37,6 +38,7 @@ gameNameMDFVersionDict = {
 	"MHWILDS":45,
 	"ONI2":46,
 	"PRAG":51,
+	"RE9":51,
 	}
 def getMDFVersionToGameName(gameName):
 	return gameNameMDFVersionDict.get(gameName,-1)
