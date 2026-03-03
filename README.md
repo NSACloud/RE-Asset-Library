@@ -1,6 +1,20 @@
+# PSA - CRC Check Error
+
+<img width="551" height="24" alt="image" src="https://github.com/user-attachments/assets/cab0dc27-a86f-4848-8889-77eae1ce24dc" />
+
+### If you're getting an error about a CRC check after downloading an asset library, it's because too many people are downloading the file.
+
+**Try downloading it again later in the day.**
+
+See [here](https://github.com/NSACloud/RE-Asset-Library/issues/14) for details.
+
+I will look into adding download mirrors to reduce this issue.
+
+---
 
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
+---
 
 **V0.24 (3/2/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
 
