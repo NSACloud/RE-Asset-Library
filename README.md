@@ -4,11 +4,7 @@
 
 ### If you're getting an error about a CRC check after downloading an asset library, it's because too many people are downloading the file.
 
-**Try downloading it again later in the day.**
-
-See [here](https://github.com/NSACloud/RE-Asset-Library/issues/14) for details.
-
-I will look into adding download mirrors to reduce this issue.
+You can either install it manually by following the instructions [here](https://github.com/NSACloud/RE-Asset-Library/wiki/Manual-Asset-Library-Install) or wait until later to download it.
 
 ---
 
