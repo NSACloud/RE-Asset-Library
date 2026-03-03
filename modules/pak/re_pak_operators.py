@@ -153,10 +153,13 @@ class WM_OT_SetExtractInfo(Operator):
 					with open(extractInfoPath,"w", encoding ="utf-8") as outFile:
 						json.dump(extractInfoDict,outFile)
 						print(f"Wrote {os.path.split(extractInfoPath)[1]}")
-					
-					addChunkPath(chunkPath=os.path.join(newDirPath,"natives",self.platform),gameName = gameName)
+					try:
+						addChunkPath(chunkPath=os.path.join(newDirPath,"natives",self.platform),gameName = gameName)
+					except Exception as e:
+						print(str(e))
+						raise Exception("RE Mesh Editor is outdated or not installed. Update all RE Addons to the latest version.")
 					if not os.path.isfile(os.path.join(libDir,"PakSizeInfo_{gameName}.json")):
-						print("Calculating pak sizes...")
+						print("\nCalculating pak sizes...")
 						getGamePakSize(libDir,gameName)
 					showMessageBox("Game extraction set up completed.",title="Set Game Extract Paths")
 					

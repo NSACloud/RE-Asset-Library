@@ -2,7 +2,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.22 (2/27/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
+**V0.23 (3/2/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
 
 ---
 **BETA RELEASE, THERE MAY BE BUGS**
@@ -10,7 +10,7 @@
 This Blender addon adds the ability to browse through RE Engine models and other files inside the asset browser.
 ### [Download RE Asset Library](https://github.com/NSACloud/RE-Asset-Library/archive/refs/heads/main.zip)
 
-<img width="1472" height="1070" alt="image" src="https://github.com/user-attachments/assets/345278fd-12b9-4645-9898-293ca42222d2" />
+<img width="1551" height="903" alt="image" src="https://github.com/user-attachments/assets/230e4476-9bca-4e50-b32b-ac6e4b9b1ddb" />
 
 ## Installation/Usage Instructions (2026)
 **The video guide below is outdated.** I will be making a new tutorial soon showing the install/setup process.
@@ -175,6 +175,12 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.23 - 3/2/2026
+* Fixed issue with extracting DLC paks in RE9.
+* When the addon is updated, saved pak caches will be reloaded automatically.
+* Added refskel and skeleton import support.
+* Minor bug fixes.
 
 ### V0.22 - 2/27/2026
 * Fixed issue with Force Extract Files on RE9.

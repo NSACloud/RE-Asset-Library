@@ -86,6 +86,9 @@ class PakTOC():
 		if header.featureIsTOCEncrypted:
 			if header.featureUseUnknTable:
 				file.seek(4,1)#Skip empty table, used in wilds HD texture pak
+				
+			if header.featureUseUnknRE9Data:
+				file.seek(9,1)#Skip RE9 Unkn Data
 			decryptStartTime = time.time()
 			
 			encryptedKey = bytearray(file.read(128))

@@ -144,7 +144,7 @@ def scanForPakFiles(gameDir):
 	
 	
 	return pakPriorityList
-PAK_CACHE_VERSION = 1	
+PAK_CACHE_VERSION = 2
 
 def writeExtractInfo(extractInfoDict,outPath):#Used to determine if the game has been updated and paks need to be rescanned
 	with open(outPath,"w") as outputFile:
@@ -342,6 +342,18 @@ def getStreamingPath(filePath,platform,lookupDict):
 	if lookupHash not in lookupDict:
 		streamingPath = None
 	return streamingPath
+
+#This forces the pak cache to be reloaded if the addon is updated.
+def checkOutdatedPakCacheVersion(pakCachePath):
+	isOutdated = True
+	try:
+		with open(pakCachePath,"rb") as file:
+			isOutdated = PAK_CACHE_VERSION != read_uint(file)
+	except:
+		pass
+	return isOutdated
+			
+
 def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCachePath,extractDependencies = True,blenderAssetObj = None):
 	extractInfo = None
 	try:
@@ -367,6 +379,12 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 			raise Exception("EXE path is invalid")
 		modifiedTime = os.path.getmtime(exePath)
 		lastModifiedTime = extractInfo["exeDate"]
+		
+		#Check for outdated pak cache and delete it if it is
+		if os.path.isfile(pakCachePath):
+			if checkOutdatedPakCacheVersion(pakCachePath):
+				print("Removing outdated pak cache.")
+				os.remove(pakCachePath)
 		
 		if not os.path.isfile(pakCachePath):
 			pakPriorityList = scanForPakFiles(os.path.split(exePath)[0])

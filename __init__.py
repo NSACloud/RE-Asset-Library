@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 22),
+	"version": (0, 23),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -648,10 +648,12 @@ def execute_queued_functions():
 
 def deleteLastREAsset():
 	#print("Delete function run")
-	if bpy.context.scene.get("lastREAsset") and bpy.context.scene.get("lastREAsset") in bpy.data.objects:
-		bpy.data.objects.remove(bpy.data.objects[bpy.context.scene.get("lastREAsset")], do_unlink=True)#Remove asset placement object
+	if bpy.context.scene.get("lastREAsset"):#Object pointer stored in scene
+		objName = bpy.context.scene["lastREAsset"].name
+		del bpy.context.scene["lastREAsset"]#Clear reference
+		if objName in bpy.data.objects:
+			bpy.data.objects.remove(bpy.data.objects[objName], do_unlink=True)#Remove asset placement object
 		#print(bpy.context.scene.get("lastREAsset") +" Deleted")
-		del bpy.context.scene["lastREAsset"]
 @persistent
 def REAssetPostHandler(lapp_context):
 	gameInfoPath = None
@@ -671,7 +673,7 @@ def REAssetPostHandler(lapp_context):
 			else:
 				print(f"RE Asset Library - Missing GameInfo:{gameInfoPath}")
 			assetType = item.id.get("assetType","UNKN")
-			bpy.context.scene["lastREAsset"] = item.id.name
+			
 			promptSetExtractInfo = False
 			if gameInfo != None:
 				
@@ -728,12 +730,16 @@ def REAssetPostHandler(lapp_context):
 							importREChain2Asset(item.id,assetPath,addonPreferences)
 						case "FBXSKEL":
 							importREFBXSkelAsset(item.id,assetPath,addonPreferences)
+						case "REFSKEL":
+							importREFBXSkelAsset(item.id,assetPath,addonPreferences)
+						case "SKELETON":
+							importREFBXSkelAsset(item.id,assetPath,addonPreferences)
 						case _:
 							print(f"RE Asset Library - Unsupported Asset Type, cannot import. {item.id.name} - {assetType} ")
 							print("Make sure all RE addons are up to date.")
 					
 					
-					
+			bpy.context.scene["lastREAsset"] = item.id
 			if promptSetExtractInfo:
 				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = bpy.path.abspath(item.source_library.filepath))
 			
