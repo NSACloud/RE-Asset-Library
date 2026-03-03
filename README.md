@@ -2,7 +2,7 @@
 ![REAssetLibraryTitle](https://github.com/user-attachments/assets/a5bd7edf-1c64-441b-ae40-f88abfea38f7)
 
 
-**V0.23 (3/2/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
+**V0.24 (3/2/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
 
 ---
 **BETA RELEASE, THERE MAY BE BUGS**
@@ -175,6 +175,9 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.24 - 3/2/2026
+* Fixed missing refskel and skeleton icons.
 
 ### V0.23 - 3/2/2026
 * Fixed issue with extracting DLC paks in RE9.
