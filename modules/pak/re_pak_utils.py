@@ -946,7 +946,7 @@ def extractPakMP(filePathList,pakPathList,outDir,maxThreads = cpu_count()-1,skip
 				
 	
 	
-def createPakPatch(pakDir,outPath,compress=True,buildManifest = True):
+def createPakPatch(pakDir,outPath,compress=False,buildManifest = True):
 	fileTypeBlackList = set([".exe",".dll",".pak",".blend",".blend1"])
 	noCompressionExtensions = set([".tex",".png",".jpg",".ini"])#Tex can't be compressed since it uses gdeflate already
 	hasNatives = False

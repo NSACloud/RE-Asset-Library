@@ -12,7 +12,7 @@ You can either install it manually by following the instructions [here](https://
 
 ---
 
-**V0.24 (3/2/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
+**V0.25 (3/21/2026) | [Change Log](https://github.com/NSACloud/RE-Asset-Library?tab=readme-ov-file#change-log) | [FAQ](https://github.com/NSACloud/RE-Asset-Library/tree/main?tab=readme-ov-file#faq)**
 
 ---
 **BETA RELEASE, THERE MAY BE BUGS**
@@ -185,6 +185,9 @@ If the file is present on the system, it will be imported by an addon associated
 
 
 ## Change Log
+
+### V0.25 - 3/21/2026
+* Fixed issue related to file compression that would cause the game to crash on startup when specific files were included in a patch pak.
 
 ### V0.24 - 3/2/2026
 * Fixed missing refskel and skeleton icons.

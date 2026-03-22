@@ -725,6 +725,7 @@ class WM_OT_CreatePakPatch(Operator):
 	   description = "Set the path where you want the patch pak to saved",
 	   subtype = "FILE_PATH",
    )
+	openOutputFolder : bpy.props.BoolProperty(name = "Open output directory after pak creation",description = "After the patch pak is created, open the directory containing it in File Explorer",default = True)
 	def execute(self, context):
 		
 		pakDir = bpy.path.abspath(self.pakDir)
@@ -745,10 +746,11 @@ class WM_OT_CreatePakPatch(Operator):
 			except:
 				 pass
 			if os.path.isfile(outPath):
-				try:
-					openFolder(os.path.split(outPath)[0])
-				except:
-					pass
+				if self.openOutputFolder:
+					try:
+						openFolder(os.path.split(outPath)[0])
+					except:
+						pass
 				bpy.context.scene["lastExportedPatchPak"] = outPath
 				self.report({"INFO"},"Created pak patch.")
 			else:
@@ -781,6 +783,7 @@ class WM_OT_CreatePakPatch(Operator):
 		layout = self.layout
 		layout.prop(self,"pakDir")
 		layout.prop(self,"outPath")
+		layout.prop(self,"openOutputFolder")
 def getAssetLibraryItems():
 	libEntryList = []
 	for lib in bpy.context.preferences.filepaths.asset_libraries:
