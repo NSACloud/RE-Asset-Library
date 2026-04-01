@@ -1,3 +1,11 @@
+# End Of Support Notice
+
+I am ending development of my RE Engine addons. No further updates or support will be provided.
+
+Feel free to fork the project if you want to.
+
+---
+
 # PSA - CRC Check Error
 
 <img width="551" height="24" alt="image" src="https://github.com/user-attachments/assets/cab0dc27-a86f-4848-8889-77eae1ce24dc" />
